@@ -1,0 +1,203 @@
+from sklearn.cluster import AgglomerativeClustering
+from typing import List, Tuple, Optional
+from ..configs import ClustererConfig
+from PIL import Image, ImageFilter
+import matplotlib.pyplot as plt
+import fitz  # PyMuPDF
+import numpy as np
+import os
+
+
+class Clusterer:
+    """
+    Minimal pipeline:
+      PDF page -> grayscale -> binarize -> (optional) dilation -> (x,y) black pixels ->
+      Agglomerative (hierarchical) clustering -> save plots (points and clusters).
+    """
+
+    def __init__(self, pdf_path: str, out_dir: str, cfg: Optional[ClustererConfig] = None):
+        self.pdf_path = pdf_path
+        self.out_dir = out_dir
+        self.cfg = cfg or ClustererConfig()
+        os.makedirs(self.out_dir, exist_ok=True)
+
+    # --------------- Rendering ---------------
+
+    def _render_page_gray(self, doc: fitz.Document, page_index: int) -> Image.Image:
+        page = doc.load_page(page_index)
+        scale = self.cfg.dpi / 72.0
+        mat = fitz.Matrix(scale, scale)
+        pix = page.get_pixmap(matrix=mat, colorspace=fitz.csGRAY, alpha=False)
+        img = Image.frombytes("L", (pix.width, pix.height), pix.samples)
+        if self.cfg.invert:
+            img = Image.eval(img, lambda p: 255 - p)
+        return img
+
+    # --------------- Binarization ---------------
+
+    @staticmethod
+    def _otsu_threshold(gray: np.ndarray) -> int:
+        hist, _ = np.histogram(gray.ravel(), bins=256, range=(0, 256))
+        total = gray.size
+        sum_total = np.dot(np.arange(256), hist)
+        sum_b = 0.0
+        w_b = 0.0
+        var_max = 0.0
+        threshold = 0
+        for t in range(256):
+            w_b += hist[t]
+            if w_b == 0:
+                continue
+            w_f = total - w_b
+            if w_f == 0:
+                break
+            sum_b += t * hist[t]
+            m_b = sum_b / w_b
+            m_f = (sum_total - sum_b) / w_f
+            var_between = w_b * w_f * (m_b - m_f) ** 2
+            if var_between > var_max:
+                var_max = var_between
+                threshold = t
+        return threshold
+
+    def _to_binary_L(self, img_gray: Image.Image) -> Image.Image:
+        """
+        Return 'L' mode image with values in {0,255}, where black=0, white=255.
+        This polarity is convenient for dilation using MinFilter (expands dark regions).
+        """
+        arr = np.asarray(img_gray, dtype=np.uint8)
+        thr = self.cfg.fixed_threshold if self.cfg.fixed_threshold is not None \
+              else (self._otsu_threshold(arr) if self.cfg.use_otsu else 128)
+        bin_arr = np.where(arr <= thr, 0, 255).astype(np.uint8)
+        return Image.fromarray(bin_arr, mode="L")
+
+    # --------------- Dilation (smudge) ---------------
+
+    def _dilate(self, bin_L: Image.Image) -> Image.Image:
+        """
+        Morphological dilation for black foreground using MinFilter on {black=0, white=255}.
+        Kernel size = 2*radius + 1; repeat for iterations.
+        """
+        if not self.cfg.use_dilation or self.cfg.dilate_radius_px <= 0:
+            return bin_L
+        size = 2 * int(self.cfg.dilate_radius_px) + 1
+        out = bin_L
+        for _ in range(max(1, self.cfg.dilation_iterations)):
+            out = out.filter(ImageFilter.MinFilter(size=size))
+        return out
+
+    # --------------- Extract black pixel coordinates ---------------
+
+    @staticmethod
+    def _extract_black_xy_from_L(pil_binary_L: Image.Image) -> np.ndarray:
+        # black pixels are 0 in 'L' image
+        arr = np.asarray(pil_binary_L, dtype=np.uint8)
+        ys, xs = np.where(arr == 0)
+        if xs.size == 0:
+            return np.empty((0, 2), dtype=np.int32)
+        return np.column_stack((xs.astype(np.int32), ys.astype(np.int32)))
+
+    # --------------- Clustering ---------------
+
+    def _hierarchical_cluster(self, pts: np.ndarray) -> np.ndarray:
+        """
+        Agglomerative clustering with a distance threshold (in pixels).
+        Returns labels for each point (0..K-1), or empty if no points.
+        """
+        if pts.shape[0] == 0:
+            return np.empty((0,), dtype=int)
+
+        ac = AgglomerativeClustering(
+            n_clusters=None,
+            distance_threshold=float(self.cfg.hier_distance_threshold),
+            linkage=self.cfg.hier_linkage
+        )
+        labels = ac.fit_predict(pts)
+        return labels
+
+    # --------------- Plotting ---------------
+
+    def _plot_points(self, page_idx: int, points_xy: np.ndarray, image_size: Tuple[int, int]):
+        w, h = image_size
+        plt.figure(figsize=(w / 120, h / 120), dpi=120)
+        if points_xy.size > 0:
+            plt.scatter(points_xy[:, 0], points_xy[:, 1],
+                        s=self.cfg.plot_point_size, c="black", marker="s")
+        plt.gca().invert_yaxis()
+        plt.xlim(0, w)
+        plt.ylim(h, 0)
+        plt.gca().set_aspect("equal", adjustable="box")
+        plt.title(f"Page {page_idx} — Black Pixel Map")
+        plt.xlabel("x (px)")
+        plt.ylabel("y (px)")
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.out_dir, f"page_{page_idx:04d}_points.png"), dpi=150)
+        plt.close()
+
+    def _plot_clusters(self, page_idx: int, points_xy: np.ndarray, labels: np.ndarray, image_size: Tuple[int, int]):
+        w, h = image_size
+        plt.figure(figsize=(w / 120, h / 120), dpi=120)
+        if points_xy.size > 0 and labels.size == points_xy.shape[0]:
+            rng = np.random.default_rng(self.cfg.random_state)
+            uniq = np.unique(labels)
+            color_map = {lb: (rng.random(), rng.random(), rng.random()) for lb in uniq}
+            for lb in uniq:
+                mask = labels == lb
+                plt.scatter(points_xy[mask, 0], points_xy[mask, 1],
+                            s=self.cfg.plot_point_size, c=[color_map[lb]], marker="s", label=f"cluster {lb}")
+            if len(uniq) <= 20:
+                plt.legend(loc="upper right", fontsize="small", markerscale=10)
+        plt.gca().invert_yaxis()
+        plt.xlim(0, w)
+        plt.ylim(h, 0)
+        plt.gca().set_aspect("equal", adjustable="box")
+        plt.title(f"Page {page_idx} — Hierarchical Clusters")
+        plt.xlabel("x (px)")
+        plt.ylabel("y (px)")
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.out_dir, f"page_{page_idx:04d}_clusters.png"), dpi=150)
+
+    # --------------- Pipeline ---------------
+
+    def process_page(self, doc: fitz.Document, page_idx: int):
+        """
+        Process one page:
+          - render
+          - binarize
+          - optional dilation
+          - extract black pixel coordinates
+          - hierarchical clustering
+          - save plots (points & clusters)
+        Returns (points_xy, labels).
+        """
+        gray = self._render_page_gray(doc, page_idx)
+        w, h = gray.size
+
+        bin_L = self._to_binary_L(gray)
+        bin_dilated_L = self._dilate(bin_L)
+
+        points_xy = self._extract_black_xy_from_L(bin_dilated_L)
+        if points_xy.shape[0] > self.cfg.max_points_warn:
+            print(f"[WARN] Page {page_idx}: {points_xy.shape[0]:,} black pixels — "
+                  f"consider reducing DPI or dilation radius.")
+
+        labels = self._hierarchical_cluster(points_xy)
+
+        # Plots only
+        self._plot_points(page_idx, points_xy, (w, h))
+        self._plot_clusters(page_idx, points_xy, labels, (w, h))
+
+        return points_xy, labels
+
+    def run(self, pages: Optional[List[int]] = None):
+        """
+        Process given pages (or all pages if None).
+        Returns list of (points_xy, labels) per page.
+        """
+        results = []
+        with fitz.open(self.pdf_path) as doc:
+            page_indices = pages if pages is not None else list(range(doc.page_count))
+            for pidx in page_indices:
+                pts, lbs = self.process_page(doc, pidx)
+                results.append((pts, lbs))
+        return results
