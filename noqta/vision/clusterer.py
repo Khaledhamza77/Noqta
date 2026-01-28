@@ -1,8 +1,9 @@
 from sklearn.cluster import AgglomerativeClustering
-from typing import List, Tuple, Optional
+from scipy.ndimage import distance_transform_edt
 from ..configs import ClustererConfig
 from PIL import Image, ImageFilter
 import matplotlib.pyplot as plt
+from typing import Tuple
 import fitz  # PyMuPDF
 import numpy as np
 import os
@@ -10,22 +11,28 @@ import os
 
 class Clusterer:
     """
-    Minimal pipeline:
-      PDF page -> grayscale -> binarize -> (optional) dilation -> (x,y) black pixels ->
+    Clusterer pipeline:
+      PDF page -> grayscale -> binarize -> (optional) smudge -> (x,y) black pixels ->
       Agglomerative (hierarchical) clustering -> save plots (points and clusters).
     """
 
-    def __init__(self, pdf_path: str, out_dir: str, cfg: Optional[ClustererConfig] = None):
-        self.pdf_path = pdf_path
+    def __init__(self, out_dir: str, cfg: ClustererConfig):
         self.out_dir = out_dir
-        self.cfg = cfg or ClustererConfig()
+        self.cfg = cfg
         os.makedirs(self.out_dir, exist_ok=True)
 
     # --------------- Rendering ---------------
 
+    @staticmethod
+    def _calculate_dpi(page: fitz.Page, max_px: int) -> int:
+        w_pt = page.rect.width
+        h_pt = page.rect.height
+        return (max_px * 72.0) / max(w_pt, h_pt)
+
+
     def _render_page_gray(self, doc: fitz.Document, page_index: int) -> Image.Image:
         page = doc.load_page(page_index)
-        scale = self.cfg.dpi / 72.0
+        scale = self._calculate_dpi(page, self.cfg.max_px) / 72.0
         mat = fitz.Matrix(scale, scale)
         pix = page.get_pixmap(matrix=mat, colorspace=fitz.csGRAY, alpha=False)
         img = Image.frombytes("L", (pix.width, pix.height), pix.samples)
@@ -71,7 +78,14 @@ class Clusterer:
         bin_arr = np.where(arr <= thr, 0, 255).astype(np.uint8)
         return Image.fromarray(bin_arr, mode="L")
 
-    # --------------- Dilation (smudge) ---------------
+    # --------------- EDT / Dilation (smudge) ---------------
+
+    def _edt(self, bin_L: Image.Image) -> Image.Image:
+        """
+        Euclidean Distance Transform for black foreground.
+        """
+        dist = distance_transform_edt(~np.array(bin_L))   # distance from black
+        return Image.fromarray(dist < self.cfg.threshold_edt)
 
     def _dilate(self, bin_L: Image.Image) -> Image.Image:
         """
@@ -156,48 +170,3 @@ class Clusterer:
         plt.ylabel("y (px)")
         plt.tight_layout()
         plt.savefig(os.path.join(self.out_dir, f"page_{page_idx:04d}_clusters.png"), dpi=150)
-
-    # --------------- Pipeline ---------------
-
-    def process_page(self, doc: fitz.Document, page_idx: int):
-        """
-        Process one page:
-          - render
-          - binarize
-          - optional dilation
-          - extract black pixel coordinates
-          - hierarchical clustering
-          - save plots (points & clusters)
-        Returns (points_xy, labels).
-        """
-        gray = self._render_page_gray(doc, page_idx)
-        w, h = gray.size
-
-        bin_L = self._to_binary_L(gray)
-        bin_dilated_L = self._dilate(bin_L)
-
-        points_xy = self._extract_black_xy_from_L(bin_dilated_L)
-        if points_xy.shape[0] > self.cfg.max_points_warn:
-            print(f"[WARN] Page {page_idx}: {points_xy.shape[0]:,} black pixels — "
-                  f"consider reducing DPI or dilation radius.")
-
-        labels = self._hierarchical_cluster(points_xy)
-
-        # Plots only
-        self._plot_points(page_idx, points_xy, (w, h))
-        self._plot_clusters(page_idx, points_xy, labels, (w, h))
-
-        return points_xy, labels
-
-    def run(self, pages: Optional[List[int]] = None):
-        """
-        Process given pages (or all pages if None).
-        Returns list of (points_xy, labels) per page.
-        """
-        results = []
-        with fitz.open(self.pdf_path) as doc:
-            page_indices = pages if pages is not None else list(range(doc.page_count))
-            for pidx in page_indices:
-                pts, lbs = self.process_page(doc, pidx)
-                results.append((pts, lbs))
-        return results
