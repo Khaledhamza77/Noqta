@@ -1,10 +1,10 @@
 from .configs import ClustererConfig, ChunkerConfig, SuppressorConfig
 from scipy.ndimage import distance_transform_edt
-from .cv.suppressor import Suppressor
+from .vision.suppressor import Suppressor
 from matplotlib import pyplot as plt
-from .cv.clusterer import Clusterer
+from .vision.clusterer import Clusterer
 from PIL import ImageDraw, Image
-from .cv.chunker import Chunker
+from .vision.chunker import Chunker
 import fitz  # PyMuPDF
 import numpy as np
 import logging
