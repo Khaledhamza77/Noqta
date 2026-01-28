@@ -17,7 +17,7 @@ setuptools.setup(
     author="Khaled Ibrahim",
     author_email="khaled.ibrahim@crowdlinker.com",
     description="Python package for document layout chunking using traditional computer vision.",
-    url="https://github.com/Khaledhamza77/noqta",
+    url="https://github.com/Khaledhamza77/Noqta",
     packages=setuptools.find_packages(),
     install_requires=read_requirements(),
     python_requires=">=3.8",
