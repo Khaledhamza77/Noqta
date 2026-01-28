@@ -20,7 +20,7 @@ class NOQTA:
         elif os.path.isdir(path):
             self.paths = [os.path.join(path, f) for f in os.listdir(path) if f.lower().endswith('.pdf')]
             logging.info(f"Directory provided. Found {len(self.paths)} PDF files.")
-        self.local_dir = os.path.dirname(os.path.abspath(__file__))
+        self.local_dir = os.getcwd().replace("\\", "/")
         self.output_dir = os.path.join(self.local_dir, 'noqta_crops')
         os.makedirs(self.output_dir, exist_ok=True)
     
