@@ -27,7 +27,7 @@ class NOQTA:
     def configure(self):
         clfg = self.config.get("clusterer", {})
         cl_cfg = ClustererConfig(
-            max_px=clfg.get("max_px", 800), # Longest side of page in pixels for speed
+            max_px=clfg.get("max_px", 600), # Longest side of page in pixels for speed
             invert=clfg.get("invert", False), # set True if your pages are white-on-black
             # Smudging to connect fragments (tune these)
             use_smudging=clfg.get("use_dilation", True),
@@ -155,12 +155,15 @@ class NOQTA:
                     boxes_low = chunker._boxes_from_labels(points_xy, labels,
                                                         chunker.cfg.padding_low_px,
                                                         (w_low, h_low))
+                    
+                    cleaned_boxes = suppressor.process(boxes_low)
+                    logging.info(f"Doc: {doc_name} -> Page {pidx}: reduced {len(boxes_low)} boxes to {len(cleaned_boxes)} after suppression")
                     draw = ImageDraw.Draw(gray)
-                    for box in boxes_low:
+                    for box in cleaned_boxes:
                         draw.rectangle(box, outline='red', width=3)
                     if show_imgs: gray.show()
                     
-                    boxes_high = chunker._scale_boxes_low_to_high(boxes_low,
+                    boxes_high = chunker._scale_boxes_low_to_high(cleaned_boxes,
                                                                 (w_low, h_low),
                                                                 (w_high, h_high))
                     draw2 = ImageDraw.Draw(high_img)

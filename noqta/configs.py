@@ -4,7 +4,7 @@ from typing import List, Tuple, Optional
 @dataclass
 class ClustererConfig:
     # --- Rendering / Binarization ---
-    max_px: int = 800                   # Longest side of page in pixels for speed
+    max_px: int = 600                   # Longest side of page in pixels for speed
     invert: bool = False                # set True if content is white-on-black
     use_otsu: bool = True
     fixed_threshold: Optional[int] = None  # 0..255; overrides Otsu if set
