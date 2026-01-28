@@ -40,7 +40,7 @@ class NOQTA:
             hier_distance_threshold=clfg.get("hier_distance_threshold", 3.0),
             hier_linkage=clfg.get("hier_linkage", "single") # 'single' tends to merge nearby components
         )
-        cluster = Clusterer(self.output_dir, cl_cfg)
+        cluster = Clusterer(cl_cfg)
 
         chcfg = self.config.get("chunker", {})
         ch_cfg = ChunkerConfig(
@@ -49,7 +49,7 @@ class NOQTA:
             save_format=chcfg.get("save_format", "PNG"),          # PNG or TIFF, etc.
             save_mode_1bit=chcfg.get("save_mode_1bit", False)     # set True if you want 1-bit crops
         )
-        chunker = Chunker(self.output_dir, ch_cfg)
+        chunker = Chunker(ch_cfg)
 
         supcfg = self.config.get("suppressor", {})
         sup_cfg = SuppressorConfig(
