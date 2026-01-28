@@ -80,7 +80,7 @@ class NOQTA:
                     os.makedirs(os.path.join(self.output_dir, doc_name, f"page_{pidx}"), exist_ok=True)
 
                     gray = clusterer._render_page_gray(doc, pidx); w, h = gray.size
-                    remove_right = (1/20) * w; remove_left = (1/10) * w
+                    remove_right = (1/24) * w; remove_left = (1/12) * w
                     gray = gray.crop((remove_right, 0, w-remove_left, h))
                     w, h = gray.size
                     logging.info(f"Doc: {doc_name} -> Page {pidx}: rendered (crop and binarization) grayscale image of size {w}x{h}")
