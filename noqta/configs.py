@@ -20,10 +20,6 @@ class ClustererConfig:
     hier_distance_threshold: float = 6.0  # pixels; akin to “merge radius”
     hier_linkage: str = "single"          # 'single'|'complete'|'average'|'ward'
 
-    # --- Plotting ---
-    plot_point_size: float = 1.0          # smaller for dense pages
-    random_state: int = 42
-
 @dataclass
 class ChunkerConfig:
     high_dpi: int = 600                 # DPI to render the high-res page

@@ -5,37 +5,40 @@ from matplotlib import pyplot as plt
 from .cv.clusterer import Clusterer
 from PIL import ImageDraw, Image
 from .cv.chunker import Chunker
-import numpy as np
 import fitz  # PyMuPDF
+import numpy as np
+import logging
 import os
 
 class NOQTA:
     def __init__(self, path: str, config: dict):
+        logging.basicConfig(level=logging.WARNING)
         self.config = config
         if os.path.isfile(path):
             self.paths = [path]
+            logging.info(f"Single PDF file provided: {path}")
         elif os.path.isdir(path):
             self.paths = [f for f in os.listdir(path) if f.lower().endswith('.pdf')]
+            logging.info(f"Directory provided. Found {len(self.paths)} PDF files.")
         self.local_dir = os.path.dirname(os.path.abspath(__file__))
         self.output_dir = os.path.join(self.local_dir, 'noqta_crops')
+        os.makedirs(self.output_dir, exist_ok=True)
     
     def configure(self):
         clfg = self.config.get("clusterer", {})
         cl_cfg = ClustererConfig(
-            max_px=clfg.get("max_px", 10),                 # modest DPI as requested
-            invert=clfg.get("invert", False),            # set True if your pages are white-on-black
+            max_px=clfg.get("max_px", 800), # Longest side of page in pixels for speed
+            invert=clfg.get("invert", False), # set True if your pages are white-on-black
             # Smudging to connect fragments (tune these)
             use_smudging=clfg.get("use_dilation", True),
-            type_smudging=clfg.get("type_smudging", "edt"),  # 'edt' or 'dilation'
+            type_smudging=clfg.get("type_smudging", "edt"), # 'edt' or 'dilation'
             threshold_edt=clfg.get("threshold_edt", 1),
-            dilate_radius_px=clfg.get("dilate_radius_px", 1),      # try 2–3 for tables/diagrams
+            dilate_radius_px=clfg.get("dilate_radius_px", 1),
             dilation_iterations=clfg.get("dilation_iterations", 1),
 
             # Hierarchical clustering parameters (pixel units)
             hier_distance_threshold=clfg.get("hier_distance_threshold", 3.0),
-            hier_linkage=clfg.get("hier_linkage", "single"),   # 'single' tends to merge nearby components
-
-            plot_point_size=1,
+            hier_linkage=clfg.get("hier_linkage", "single") # 'single' tends to merge nearby components
         )
         cluster = Clusterer(self.output_dir, cl_cfg)
 
@@ -55,42 +58,69 @@ class NOQTA:
             remove_duplicates=supcfg.get("remove_duplicates", True)
         )
         suppressor = Suppressor(sup_cfg)
+        logging.info("NOQTA configured successfully.")
         return cluster, chunker, suppressor
 
-    def run(self):
-        c, chunker, suppressor = self.configure(pdf_path)
+    @staticmethod
+    def _get_doc_name(pdf_path: str) -> str:
+        doc_name = os.path.splitext(os.path.basename(pdf_path))[0]
+        doc_name = doc_name.replace(' ', '_')
+        doc_name = doc_name.replace('.pdf', '')
+        return doc_name
+
+    def run(self, show_imgs: bool = False):
+        clusterer, chunker, suppressor = self.configure()
         for pdf_path in self.paths:
+            doc_name = self._get_doc_name(pdf_path)
+            logging.info(f"Processing document: {doc_name}")
+            os.makedirs(os.path.join(self.output_dir, doc_name), exist_ok=True)
             with fitz.open(pdf_path) as doc:
                 page_indices = list(range(doc.page_count))
                 for pidx in page_indices:
-                    gray = c._render_page_gray(doc, pidx); w, h = gray.size
+                    os.makedirs(os.path.join(self.output_dir, doc_name, f"page_{pidx}"), exist_ok=True)
+
+                    gray = clusterer._render_page_gray(doc, pidx); w, h = gray.size
                     remove_right = (1/20) * w; remove_left = (1/10) * w
                     gray = gray.crop((remove_right, 0, w-remove_left, h))
                     w, h = gray.size
+                    logging.info(f"Doc: {doc_name} -> Page {pidx}: rendered (crop and binarization) grayscale image of size {w}x{h}")
 
-                    gray.show() 
-                    bin_l = c._to_binary_L(gray)
-                    bin_l.show()
-                    if c.cfg.use_smudging:
-                        if c.cfg.type_smudging == 'dilation':
-                            bin_l_smudged = c._dilate(bin_l)
-                        elif c.cfg.type_smudging == 'edt':
-                            bin_l_smudged = c._edt(bin_l)
+                    if show_imgs: gray.show() 
+                    gray.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"page_{pidx}_gray.png"))
+
+                    bin_l = clusterer._to_binary_L(gray)
+                    if show_imgs: bin_l.show()
+                    if clusterer.cfg.use_smudging:
+                        if clusterer.cfg.type_smudging == 'dilation':
+                            bin_l_smudged = clusterer._dilate(bin_l)
+                        elif clusterer.cfg.type_smudging == 'edt':
+                            bin_l_smudged = clusterer._edt(bin_l)
                         else:
-                            raise ValueError(f"Unknown smudging type: {c.cfg.type_smudging}")
+                            raise ValueError(f"Unknown smudging type: {clusterer.cfg.type_smudging}")
                     else:
                         bin_l_smudged = bin_l
 
-                    bin_l_smudged.show()
+                    if show_imgs: bin_l_smudged.show()
 
-                    points_xy = c._extract_black_xy_from_L(bin_l_smudged)
+                    points_xy = clusterer._extract_black_xy_from_L(bin_l_smudged)
+                    logging.info(f"Doc: {doc_name} -> Page {pidx}: extracted {points_xy.shape[0]} black pixel points")
                     plt.scatter(points_xy[:, 0], points_xy[:, 1],
                                             s=1, c="black", marker="s")
                     plt.gca().invert_yaxis()
-                    plt.show()
+                    plt.xlim(0, w)
+                    plt.ylim(h, 0)
+                    plt.gca().set_aspect("equal", adjustable="box")
+                    plt.title(f"Page {pidx} — Black Pixel Map")
+                    plt.xlabel("x (px)")
+                    plt.ylabel("y (px)")
+                    plt.tight_layout()
+                    if show_imgs:
+                        plt.show()
+                    plt.savefig(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"page_{pidx}_points.png"), dpi=150)
                     plt.close()
 
-                    labels = c._hierarchical_cluster(points_xy)
+                    labels = clusterer._hierarchical_cluster(points_xy)
+                    logging.info(f"Doc: {doc_name} -> Page {pidx}: formed {len(np.unique(labels))} clusters")
 
                     if points_xy.size > 0 and labels.size == points_xy.shape[0]:
                         rng = np.random.default_rng(42)
@@ -103,7 +133,16 @@ class NOQTA:
                         if len(uniq) <= 20:
                             plt.legend(loc="upper right", fontsize="small", markerscale=10)
                     plt.gca().invert_yaxis()
-                    plt.show()
+                    plt.xlim(0, w)
+                    plt.ylim(h, 0)
+                    plt.gca().set_aspect("equal", adjustable="box")
+                    plt.title(f"Page {pidx} — Hierarchical Clusters")
+                    plt.xlabel("x (px)")
+                    plt.ylabel("y (px)")
+                    plt.tight_layout()
+                    if show_imgs: plt.show()
+                    plt.savefig(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"page_{pidx}_clusters.png"), dpi=150)
+                    plt.close()
 
                     page = doc.load_page(pidx)
                     high_img = chunker._render_page_high(page)
@@ -119,11 +158,14 @@ class NOQTA:
                     draw = ImageDraw.Draw(gray)
                     for box in boxes_low:
                         draw.rectangle(box, outline='red', width=3)
-                    gray.show()
+                    if show_imgs: gray.show()
+                    
                     boxes_high = chunker._scale_boxes_low_to_high(boxes_low,
                                                                 (w_low, h_low),
                                                                 (w_high, h_high))
                     draw2 = ImageDraw.Draw(high_img)
                     for box in boxes_high:
                         draw2.rectangle(box, outline='red', width=3)
-                    high_img.save('output.png')
+                    
+                    if show_imgs: high_img.show()
+                    high_img.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"page_{pidx}_high_boxes.png"))

@@ -16,10 +16,8 @@ class Clusterer:
       Agglomerative (hierarchical) clustering -> save plots (points and clusters).
     """
 
-    def __init__(self, out_dir: str, cfg: ClustererConfig):
-        self.out_dir = out_dir
+    def __init__(self, cfg: ClustererConfig):
         self.cfg = cfg
-        os.makedirs(self.out_dir, exist_ok=True)
 
     # --------------- Rendering ---------------
 
@@ -128,45 +126,3 @@ class Clusterer:
         )
         labels = ac.fit_predict(pts)
         return labels
-
-    # --------------- Plotting ---------------
-
-    def _plot_points(self, page_idx: int, points_xy: np.ndarray, image_size: Tuple[int, int]):
-        w, h = image_size
-        plt.figure(figsize=(w / 120, h / 120), dpi=120)
-        if points_xy.size > 0:
-            plt.scatter(points_xy[:, 0], points_xy[:, 1],
-                        s=self.cfg.plot_point_size, c="black", marker="s")
-        plt.gca().invert_yaxis()
-        plt.xlim(0, w)
-        plt.ylim(h, 0)
-        plt.gca().set_aspect("equal", adjustable="box")
-        plt.title(f"Page {page_idx} — Black Pixel Map")
-        plt.xlabel("x (px)")
-        plt.ylabel("y (px)")
-        plt.tight_layout()
-        plt.savefig(os.path.join(self.out_dir, f"page_{page_idx:04d}_points.png"), dpi=150)
-        plt.close()
-
-    def _plot_clusters(self, page_idx: int, points_xy: np.ndarray, labels: np.ndarray, image_size: Tuple[int, int]):
-        w, h = image_size
-        plt.figure(figsize=(w / 120, h / 120), dpi=120)
-        if points_xy.size > 0 and labels.size == points_xy.shape[0]:
-            rng = np.random.default_rng(self.cfg.random_state)
-            uniq = np.unique(labels)
-            color_map = {lb: (rng.random(), rng.random(), rng.random()) for lb in uniq}
-            for lb in uniq:
-                mask = labels == lb
-                plt.scatter(points_xy[mask, 0], points_xy[mask, 1],
-                            s=self.cfg.plot_point_size, c=[color_map[lb]], marker="s", label=f"cluster {lb}")
-            if len(uniq) <= 20:
-                plt.legend(loc="upper right", fontsize="small", markerscale=10)
-        plt.gca().invert_yaxis()
-        plt.xlim(0, w)
-        plt.ylim(h, 0)
-        plt.gca().set_aspect("equal", adjustable="box")
-        plt.title(f"Page {page_idx} — Hierarchical Clusters")
-        plt.xlabel("x (px)")
-        plt.ylabel("y (px)")
-        plt.tight_layout()
-        plt.savefig(os.path.join(self.out_dir, f"page_{page_idx:04d}_clusters.png"), dpi=150)
