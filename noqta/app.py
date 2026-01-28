@@ -12,7 +12,7 @@ import os
 
 class NOQTA:
     def __init__(self, path: str, config: dict):
-        logging.basicConfig(level=logging.WARNING)
+        logging.basicConfig(level=logging.INFO)
         self.config = config
         if os.path.isfile(path):
             self.paths = [path]
