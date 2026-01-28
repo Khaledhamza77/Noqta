@@ -19,11 +19,8 @@ class Chunker:
       - Chunker renders the page at high DPI and crops mapped boxes.
     """
 
-    def __init__(self, pdf_path: str, out_dir: str, cfg: Optional[ChunkerConfig] = None):
-        self.pdf_path = pdf_path
-        self.out_dir = out_dir
-        self.cfg = cfg or ChunkerConfig()
-        os.makedirs(self.out_dir, exist_ok=True)
+    def __init__(self, cfg: ChunkerConfig):
+        self.cfg = cfg
 
     # --------------------- Render high-DPI page ---------------------
 
