@@ -147,7 +147,7 @@ class NOQTA:
                     page = doc.load_page(pidx)
                     high_img = chunker._render_page_high(page)
                     w_high, h_high = high_img.size
-                    remove_right = (1/20) * w_high; remove_left = (1/10) * w_high
+                    remove_right = (1/24) * w_high; remove_left = (1/12) * w_high
                     high_img = high_img.crop((remove_right, 0, w_high-remove_left, h_high))
                     w_high, h_high = high_img.size
                     w_low, h_low = w, h
