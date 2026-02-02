@@ -44,7 +44,7 @@ class NOQTA:
 
         chcfg = self.config.get("chunker", {})
         ch_cfg = ChunkerConfig(
-            high_dpi=chcfg.get("high_dpi", 100),                  # render high-resolution crops
+            zoom_rate=chcfg.get("zoom_rate", 3.0),                # how much larger the page size (to crop from) compared to page size of clusterer
             padding_low_px=chcfg.get("padding_low_px", 0),        # extra margin around clusters in LOW-DPI units
             save_format=chcfg.get("save_format", "PNG"),          # PNG or TIFF, etc.
             save_mode_1bit=chcfg.get("save_mode_1bit", False)     # set True if you want 1-bit crops
@@ -53,6 +53,7 @@ class NOQTA:
 
         supcfg = self.config.get("suppressor", {})
         sup_cfg = SuppressorConfig(
+            ratio_to_image_threshold=supcfg.get("ratio_to_image_threshold", 0.8),  # max fraction of page acceptable for height or width of a box
             overlap_threshold=supcfg.get("overlap_threshold", 0.60),
             pad_union_px=supcfg.get("pad_union_px", 0),
             remove_duplicates=supcfg.get("remove_duplicates", True)
