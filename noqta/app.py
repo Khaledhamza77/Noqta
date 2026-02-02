@@ -1,10 +1,11 @@
 from .configs import ClustererConfig, ChunkerConfig, SuppressorConfig
 from scipy.ndimage import distance_transform_edt
 from .vision.suppressor import Suppressor
-from matplotlib import pyplot as plt
 from .vision.clusterer import Clusterer
-from PIL import ImageDraw, Image
+from .vision.scissors import Scissors
+from matplotlib import pyplot as plt
 from .vision.chunker import Chunker
+from PIL import ImageDraw, Image
 import fitz  # PyMuPDF
 import numpy as np
 import logging
@@ -168,3 +169,8 @@ class NOQTA:
                     
                     if show_imgs: high_img.show()
                     high_img.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"page_{pidx}_high_boxes.png"))
+                    Scissors.crop_image_by_boxes(
+                        high_img,
+                        boxes_high,
+                        os.path.join(self.output_dir, doc_name, f"page_{pidx}")
+                    )
