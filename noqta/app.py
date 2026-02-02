@@ -156,21 +156,23 @@ class NOQTA:
                     cleaned_boxes = suppressor.process(boxes_low, (w_low, h_low))
                     logging.info(f"Doc: {doc_name} -> Page {pidx}: reduced {len(boxes_low)} boxes to {len(cleaned_boxes)} after suppression")
                     draw = ImageDraw.Draw(gray)
-                    for box in cleaned_boxes:
-                        draw.rectangle(box, outline='red', width=3)
-                    if show_imgs: gray.show()
-                    
-                    boxes_high = chunker._scale_boxes_low_to_high(cleaned_boxes,
-                                                                (w_low, h_low),
-                                                                (w_high, h_high))
-                    draw2 = ImageDraw.Draw(high_img)
-                    for box in boxes_high:
-                        draw2.rectangle(box, outline='red', width=3)
-                    
-                    if show_imgs: high_img.show()
-                    high_img.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"page_{pidx}_high_boxes.png"))
-                    Scissors.crop_image_by_boxes(
-                        high_img,
-                        boxes_high,
-                        os.path.join(self.output_dir, doc_name, f"page_{pidx}")
-                    )
+                    if cleaned_boxes:
+                        os.makedirs(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes"), exist_ok=True)
+                        for box in cleaned_boxes:
+                            draw.rectangle(box, outline='red', width=3)
+                        if show_imgs: gray.show()
+                        
+                        boxes_high = chunker._scale_boxes_low_to_high(cleaned_boxes,
+                                                                    (w_low, h_low),
+                                                                    (w_high, h_high))
+                        draw2 = ImageDraw.Draw(high_img)
+                        for box in boxes_high:
+                            draw2.rectangle(box, outline='red', width=3)
+                        
+                        if show_imgs: high_img.show()
+                        high_img.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"page_{pidx}_high_boxes.png"))
+                        Scissors.crop_image_by_boxes(
+                            high_img,
+                            boxes_high,
+                            os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes")
+                        )
