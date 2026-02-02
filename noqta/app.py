@@ -79,9 +79,7 @@ class NOQTA:
                 for pidx in page_indices:
                     os.makedirs(os.path.join(self.output_dir, doc_name, f"page_{pidx}"), exist_ok=True)
 
-                    gray = clusterer._render_page_gray(doc, pidx); w, h = gray.size
-                    remove_right = (1/24) * w; remove_left = (1/12) * w
-                    gray = gray.crop((remove_right, 0, w-remove_left, h))
+                    gray, scale = clusterer._render_page_gray(doc, pidx)
                     w, h = gray.size
                     logging.info(f"Doc: {doc_name} -> Page {pidx}: rendered (crop and binarization) grayscale image of size {w}x{h}")
 
@@ -145,10 +143,7 @@ class NOQTA:
                     plt.close()
 
                     page = doc.load_page(pidx)
-                    high_img = chunker._render_page_high(page)
-                    w_high, h_high = high_img.size
-                    remove_right = (1/24) * w_high; remove_left = (1/12) * w_high
-                    high_img = high_img.crop((remove_right, 0, w_high-remove_left, h_high))
+                    high_img = chunker._render_page_high(page, scale)
                     w_high, h_high = high_img.size
                     w_low, h_low = w, h
 
@@ -156,7 +151,7 @@ class NOQTA:
                                                         chunker.cfg.padding_low_px,
                                                         (w_low, h_low))
                     
-                    cleaned_boxes = suppressor.process(boxes_low)
+                    cleaned_boxes = suppressor.process(boxes_low, (w_low, h_low))
                     logging.info(f"Doc: {doc_name} -> Page {pidx}: reduced {len(boxes_low)} boxes to {len(cleaned_boxes)} after suppression")
                     draw = ImageDraw.Draw(gray)
                     for box in cleaned_boxes:

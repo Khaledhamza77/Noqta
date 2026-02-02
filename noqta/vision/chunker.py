@@ -24,9 +24,9 @@ class Chunker:
 
     # --------------------- Render high-DPI page ---------------------
 
-    def _render_page_high(self, page: fitz.Page) -> Image.Image:
-        scale = self.cfg.high_dpi / 72.0
-        mat = fitz.Matrix(scale, scale)
+    def _render_page_high(self, page: fitz.Page, scale: float) -> Image.Image:
+        new_scale = scale * self.cfg.zoom_rate
+        mat = fitz.Matrix(new_scale, new_scale)
         # Render in GRAY to reduce memory; keep alpha=False for deterministic size
         pix = page.get_pixmap(matrix=mat, colorspace=fitz.csGRAY, alpha=False)
         img = Image.frombytes("L", (pix.width, pix.height), pix.samples)

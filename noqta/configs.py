@@ -22,8 +22,7 @@ class ClustererConfig:
 
 @dataclass
 class ChunkerConfig:
-    high_dpi: int = 600                 # DPI to render the high-res page
-    low_dpi: Optional[int] = None       # DPI used for low-res clusters (optional)
+    zoom_rate: float = 3.0              # how much larger the page size (to crop from) compared to page size of clusterer
     padding_low_px: int = 2             # extra padding around each cluster (in LOW-DPI pixels)
     save_format: str = "PNG"            # PNG or TIFF, etc.
     save_mode_1bit: bool = False        # if True, convert crops to 1-bit (useful for OCR)
@@ -31,6 +30,7 @@ class ChunkerConfig:
 
 @dataclass
 class SuppressorConfig:
+    ratio_to_image_threshold: float = 0.8  # max fraction of page acceptable for height or width of a box
     overlap_threshold: float = 0.60  # fraction of the smaller box area required to merge
     clamp: Optional[Tuple[int, int]] = None  # (W, H) to clamp boxes within image bounds
     pad_union_px: int = 0  # extra pixels to pad the union when enlarging bigger box

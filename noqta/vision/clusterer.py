@@ -27,7 +27,6 @@ class Clusterer:
         h_pt = page.rect.height
         return (max_px * 72.0) / max(w_pt, h_pt)
 
-
     def _render_page_gray(self, doc: fitz.Document, page_index: int) -> Image.Image:
         page = doc.load_page(page_index)
         scale = self._calculate_dpi(page, self.cfg.max_px) / 72.0
@@ -36,7 +35,7 @@ class Clusterer:
         img = Image.frombytes("L", (pix.width, pix.height), pix.samples)
         if self.cfg.invert:
             img = Image.eval(img, lambda p: 255 - p)
-        return img
+        return img, scale
 
     # --------------- Binarization ---------------
 

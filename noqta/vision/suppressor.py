@@ -68,8 +68,27 @@ class Suppressor:
         if x1 <= x0: x1 = x0 + 1
         if y1 <= y0: y1 = y0 + 1
         return (x0, y0, x1, y1)
+    # ------------------------------ Step 1: Remove oversized boxes ------------------------------
 
-    # ------------------------------ Step 1: Enclosure NMS ------------------------------
+    def remove_oversized(self, boxes: List[Box], image_size: Tuple[int, int]) -> List[Box]:
+        """
+        Remove boxes that exceed a certain fraction of the image size in width or height.
+        """
+        w_img, h_img = image_size
+        max_w = self.cfg.ratio_to_image_threshold * w_img
+        max_h = self.cfg.ratio_to_image_threshold * h_img
+
+        filtered_boxes: List[Box] = []
+        for b in boxes:
+            x0, y0, x1, y1 = b
+            box_w = x1 - x0
+            box_h = y1 - y0
+            if box_w <= max_w and box_h <= max_h:
+                filtered_boxes.append(b)
+
+        return filtered_boxes
+
+    # ------------------------------ Step 2: Enclosure NMS ------------------------------
 
     def remove_fully_enclosed(self, boxes: List[Box]) -> List[Box]:
         """
@@ -96,7 +115,7 @@ class Suppressor:
             result = self._deduplicate(result)
         return result
 
-    # ------------------------------ Step 2: Merge high-overlap pairs ------------------------------
+    # ------------------------------ Step 3: Merge high-overlap pairs ------------------------------
 
     def merge_high_overlap(self, boxes: List[Box]) -> List[Box]:
         """
@@ -175,12 +194,14 @@ class Suppressor:
                 unique.append(b)
         return unique
 
-    def process(self, boxes: List[Box]) -> List[Box]:
+    def process(self, boxes: List[Box], image_size: Tuple[int, int]) -> List[Box]:
         """
         Full pipeline:
-          1) Remove fully encompassed boxes.
-          2) Merge high-overlap pairs (≥ threshold), enlarging bigger box, then remove enclosed.
+          1) Remove oversized boxes.
+          2) Remove fully encompassed boxes.
+          3) Merge high-overlap pairs (≥ threshold), enlarging bigger box, then remove enclosed.
         """
-        b = self.remove_fully_enclosed(boxes)
+        b = self.remove_oversized(boxes, image_size)
+        b = self.remove_fully_enclosed(b)
         b = self.merge_high_overlap(b)
         return b
