@@ -86,15 +86,15 @@ class NOQTA:
                     logging.info(f"Doc: {doc_name} -> Page {pidx}: rendered (crop and binarization) grayscale image of size {w}x{h}")
 
                     if show_imgs: gray.show() 
-                    gray.save(os.path.join(self.output_dir, doc_name, f"1_page_{pidx}", f"page_{pidx}_gray.png"))
+                    gray.save(os.path.join(self.output_dir, doc_name, f"age_{pidx}", f"1_page_{pidx}_gray.png"))
 
                     bin_l = clusterer._to_binary_L(gray)
                     if show_imgs: bin_l.show()
-                    bin_l.save(os.path.join(self.output_dir, doc_name, f"2_page_{pidx}", f"page_{pidx}_binarized.png"))
+                    bin_l.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"2_page_{pidx}_binarized.png"))
 
                     edges_detected, edges_removed = clusterer._remove_frames(img=bin_l)
-                    edges_detected.save(os.path.join(self.output_dir, doc_name, f"3_page_{pidx}", f"page_{pidx}_detected_frames.png"))
-                    edges_removed.save(os.path.join(self.output_dir, doc_name, f"4_page_{pidx}", f"page_{pidx}_frames_removed.png"))
+                    edges_detected.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"3_page_{pidx}_detected_frames.png"))
+                    edges_removed.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"4_page_{pidx}_frames_removed.png"))
                     if show_imgs: edges_detected.show()
                     del edges_detected
 
