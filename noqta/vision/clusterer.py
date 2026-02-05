@@ -103,7 +103,7 @@ class Clusterer:
         horizontals: List[Tuple[int, int, int, int]] = []
         verticals: List[Tuple[int, int, int, int]] = []
         if lines is not None:
-            angle_tol = np.deg2rad(self.cfg.angle_tol_deg)
+            angle_tol = np.deg2rad(self.cfg.angle_tolerance_degree)
             for x1, y1, x2, y2 in lines[:, 0]:
                 dx = x2 - x1
                 dy = y2 - y1
