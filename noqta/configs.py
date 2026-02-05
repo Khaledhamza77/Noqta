@@ -40,7 +40,7 @@ class ChunkerConfig:
 
 @dataclass
 class SuppressorConfig:
-    ratio_to_image_threshold: float = 0.8  # max fraction of page acceptable for height or width of a box
+    ratio_to_image_threshold: float = 0.6  # max fraction of page acceptable for height or width of a box
     overlap_threshold: float = 0.60  # fraction of the smaller box area required to merge
     clamp: Optional[Tuple[int, int]] = None  # (W, H) to clamp boxes within image bounds
     pad_union_px: int = 0  # extra pixels to pad the union when enlarging bigger box

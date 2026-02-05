@@ -75,15 +75,15 @@ class Suppressor:
         Remove boxes that exceed a certain fraction of the image size in width or height.
         """
         w_img, h_img = image_size
-        max_w = self.cfg.ratio_to_image_threshold * w_img
-        max_h = self.cfg.ratio_to_image_threshold * h_img
+        max_area = self.cfg.ratio_to_image_threshold * (w_img * h_img)
 
         filtered_boxes: List[Box] = []
         for b in boxes:
             x0, y0, x1, y1 = b
             box_w = x1 - x0
             box_h = y1 - y0
-            if box_w <= max_w and box_h <= max_h:
+            area = box_w * box_h
+            if area <= max_area:
                 filtered_boxes.append(b)
 
         return filtered_boxes
