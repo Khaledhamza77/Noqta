@@ -144,7 +144,6 @@ class Clusterer:
             cv2.line(out2, (x1,y), (x2,y), (255,255,255), 2)
         for x, y1, _, y2 in verticals:
             cv2.line(out2, (x,y1), (x,y2), (255,255,255), 2)
-        out2 = cv2.cvtColor(out2, cv2.COLOR_RGB2GRAY)
         
         return Image.fromarray(out1), Image.fromarray(out2, mode="L")
 
