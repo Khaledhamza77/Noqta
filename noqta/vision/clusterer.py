@@ -1,11 +1,13 @@
 from sklearn.cluster import AgglomerativeClustering
 from scipy.ndimage import distance_transform_edt
+from typing import Dict, Any, List, Tuple
 from ..configs import ClustererConfig
 from PIL import Image, ImageFilter
 import matplotlib.pyplot as plt
 from typing import Tuple
 import fitz  # PyMuPDF
 import numpy as np
+import cv2
 import os
 
 
@@ -74,6 +76,77 @@ class Clusterer:
               else (self._otsu_threshold(arr) if self.cfg.use_otsu else 128)
         bin_arr = np.where(arr <= thr, 0, 255).astype(np.uint8)
         return Image.fromarray(bin_arr, mode="L")
+    
+    # --------------- Removing Frames -----------------------
+
+    def _remove_frames(self, img: Image):
+        W, H = img.size
+        img = np.array(img)
+        gx = cv2.Sobel(img, cv2.CV_32F, 1, 0, ksize=self.cfg.sobel_kernel_size)
+        gy = cv2.Sobel(img, cv2.CV_32F, 0, 1, ksize=self.cfg.sobel_kernel_size)
+        
+        # Gradient magnitude
+        mag = cv2.magnitude(gx, gy)  # float32
+        # Normalize to 8-bit for thresholding / visualization
+        mag_u8 = cv2.convertScaleAbs(mag)
+        _, edges = cv2.threshold(mag_u8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        x = Image.fromarray(edges)
+        min_line_length_h = int(W * self.cfg.min_ratio_to_side)
+        min_line_length_v = int(H * self.cfg.min_ratio_to_side)
+        lines = cv2.HoughLinesP(
+            edges,
+            rho=self.cfg.rho,
+            theta=self.cfg.theta,
+            threshold=self.cfg.threshold,
+            maxLineGap=self.cfg.max_line_gap
+        )
+        horizontals: List[Tuple[int, int, int, int]] = []
+        verticals: List[Tuple[int, int, int, int]] = []
+        if lines is not None:
+            angle_tol = np.deg2rad(self.cfg.angle_tol_deg)
+            for x1, y1, x2, y2 in lines[:, 0]:
+                dx = x2 - x1
+                dy = y2 - y1
+                length = np.hypot(dx, dy)
+                if length < 2:  # ignore tiny segments
+                    continue
+                angle = np.arctan2(dy, dx)  # radians
+            
+                # Normalize angle to [-pi/2, pi/2] for easier checks
+                a = ((angle + np.pi/2) % np.pi) - np.pi/2
+            
+                # Horizontal if near 0°, Vertical if near ±90°
+                if abs(a) <= angle_tol:
+                    # Horizontal: check projected span in X
+                    span = abs(x2 - x1)
+                    if span >= min_line_length_h:
+                        # Normalize y to average to reduce small skew artifacts
+                        y = int(round((y1 + y2) / 2))
+                        horizontals.append((min(x1, x2), y, max(x1, x2), y))
+                elif abs(abs(a) - np.pi/2) <= angle_tol:
+                    # Vertical: check projected span in Y
+                    span = abs(y2 - y1)
+                    if span >= min_line_length_v:
+                        x = int(round((x1 + x2) / 2))
+                        verticals.append((x, min(y1, y2), x, max(y1, y2)))
+        
+        #out1 og image with detected edges
+        out1 = np.array(img.copy())
+        out1 = cv2.cvtColor(out1, cv2.COLOR_GRAY2RGB)
+        for x1,y,x2,_ in horizontals:
+            cv2.line(out1, (x1,y), (x2,y), (255,0,0), 2)
+        for x, y1, _, y2 in verticals:
+            cv2.line(out1, (x,y1), (x,y2), (255,0,0), 2)
+
+        #out2 og with edges removed (whitened)
+        out2 = np.array(img.copy())
+        for x1,y,x2,_ in horizontals:
+            cv2.line(out2, (x1,y), (x2,y), (255,255,255), 2)
+        for x, y1, _, y2 in verticals:
+            cv2.line(out2, (x,y1), (x,y2), (255,255,255), 2)
+        out2 = cv2.cvtColor(out2, cv2.COLOR_RGB2GRAY)
+        
+        return Image.fromarray(out1), Image.fromarray(out2, mode="L")
 
     # --------------- EDT / Dilation (smudge) ---------------
 

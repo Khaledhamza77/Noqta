@@ -1,3 +1,4 @@
+import numpy as np
 from dataclasses import dataclass
 from typing import List, Tuple, Optional
 
@@ -8,6 +9,15 @@ class ClustererConfig:
     invert: bool = False                # set True if content is white-on-black
     use_otsu: bool = True
     fixed_threshold: Optional[int] = None  # 0..255; overrides Otsu if set
+
+    # --- frame removal ---
+    sobel_kernel_size: int = 3
+    rho: float = 1.0
+    theta: float = np.pi / 180
+    threshold: int = 100
+    angle_tolerance_degree: float = 1.0
+    max_line_gap: int = 5
+    min_ratio_to_side: float = 0.9
 
     # --- Smudge ---
     use_smudging: bool = True
@@ -22,7 +32,7 @@ class ClustererConfig:
 
 @dataclass
 class ChunkerConfig:
-    zoom_rate: float = 3.0              # how much larger the page size (to crop from) compared to page size of clusterer
+    zoom_rate: float = 5.0              # how much larger the page size (to crop from) compared to page size of clusterer
     padding_low_px: int = 2             # extra padding around each cluster (in LOW-DPI pixels)
     save_format: str = "PNG"            # PNG or TIFF, etc.
     save_mode_1bit: bool = False        # if True, convert crops to 1-bit (useful for OCR)

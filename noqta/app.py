@@ -86,21 +86,30 @@ class NOQTA:
                     logging.info(f"Doc: {doc_name} -> Page {pidx}: rendered (crop and binarization) grayscale image of size {w}x{h}")
 
                     if show_imgs: gray.show() 
-                    gray.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"page_{pidx}_gray.png"))
+                    gray.save(os.path.join(self.output_dir, doc_name, f"1_page_{pidx}", f"page_{pidx}_gray.png"))
 
                     bin_l = clusterer._to_binary_L(gray)
                     if show_imgs: bin_l.show()
+                    bin_l.save(os.path.join(self.output_dir, doc_name, f"2_page_{pidx}", f"page_{pidx}_binarized.png"))
+
+                    edges_detected, edges_removed = clusterer._remove_frames(img=bin_l)
+                    edges_detected.save(os.path.join(self.output_dir, doc_name, f"3_page_{pidx}", f"page_{pidx}_detected_frames.png"))
+                    edges_removed.save(os.path.join(self.output_dir, doc_name, f"4_page_{pidx}", f"page_{pidx}_frames_removed.png"))
+                    if show_imgs: edges_detected.show()
+                    del edges_detected
+
                     if clusterer.cfg.use_smudging:
                         if clusterer.cfg.type_smudging == 'dilation':
-                            bin_l_smudged = clusterer._dilate(bin_l)
+                            bin_l_smudged = clusterer._dilate(edges_removed)
                         elif clusterer.cfg.type_smudging == 'edt':
-                            bin_l_smudged = clusterer._edt(bin_l)
+                            bin_l_smudged = clusterer._edt(edges_removed)
                         else:
                             raise ValueError(f"Unknown smudging type: {clusterer.cfg.type_smudging}")
                     else:
-                        bin_l_smudged = bin_l
+                        bin_l_smudged = edges_removed
 
                     if show_imgs: bin_l_smudged.show()
+                    bin_l_smudged.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"5_page_{pidx}_smudged.png"))
 
                     points_xy = clusterer._extract_black_xy_from_L(bin_l_smudged)
                     logging.info(f"Doc: {doc_name} -> Page {pidx}: extracted {points_xy.shape[0]} black pixel points")
@@ -116,7 +125,7 @@ class NOQTA:
                     plt.tight_layout()
                     if show_imgs:
                         plt.show()
-                    plt.savefig(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"page_{pidx}_points.png"), dpi=150)
+                    plt.savefig(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"6_page_{pidx}_points.png"), dpi=150)
                     plt.close()
 
                     labels = clusterer._hierarchical_cluster(points_xy)
@@ -141,7 +150,7 @@ class NOQTA:
                     plt.ylabel("y (px)")
                     plt.tight_layout()
                     if show_imgs: plt.show()
-                    plt.savefig(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"page_{pidx}_clusters.png"), dpi=150)
+                    plt.savefig(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"7_page_{pidx}_clusters.png"), dpi=150)
                     plt.close()
 
                     page = doc.load_page(pidx)
@@ -170,7 +179,7 @@ class NOQTA:
                             draw2.rectangle(box, outline='red', width=3)
                         
                         if show_imgs: high_img.show()
-                        high_img.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"page_{pidx}_high_boxes.png"))
+                        high_img.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"8_page_{pidx}_high_boxes.png"))
                         Scissors.crop_image_by_boxes(
                             high_img,
                             boxes_high,
