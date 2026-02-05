@@ -86,7 +86,7 @@ class NOQTA:
                     logging.info(f"Doc: {doc_name} -> Page {pidx}: rendered (crop and binarization) grayscale image of size {w}x{h}")
 
                     if show_imgs: gray.show() 
-                    gray.save(os.path.join(self.output_dir, doc_name, f"age_{pidx}", f"1_page_{pidx}_gray.png"))
+                    gray.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"1_page_{pidx}_gray.png"))
 
                     bin_l = clusterer._to_binary_L(gray)
                     if show_imgs: bin_l.show()
