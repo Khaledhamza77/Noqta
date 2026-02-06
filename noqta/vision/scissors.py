@@ -147,4 +147,4 @@ class Scissors:
             x1, y1, x2, y2 = Scissors._clip_box_to_image(box, (W, H))
             # Crop and save
             crop = image.crop((x1, y1, x2, y2))
-            crop.save(os.path.join(path_to_save, f"box_{i}.png"))
+            crop.save(os.path.join(path_to_save, f"box_{i}.jpeg"))
