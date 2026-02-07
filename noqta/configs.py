@@ -18,6 +18,7 @@ class ClustererConfig:
     angle_tolerance_degree: float = 1.0
     max_line_gap: int = 5
     min_ratio_to_side: float = 0.9
+    edge_thickness: int = 2
 
     # --- Smudge ---
     use_smudging: bool = True
