@@ -235,7 +235,7 @@ class Suppressor:
 
         for comp in nx.connected_components(graph):
             if len(comp) == 1:
-                comp_box = boxes[comp[0]]
+                comp_box = boxes[list(comp)[0]]
                 x1 = comp_box[0]; x2 = comp_box[2]
                 y1 = comp_box[1]; y2 = comp_box[3]
                 w = x2 - x1
