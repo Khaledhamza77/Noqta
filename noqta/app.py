@@ -56,7 +56,9 @@ class NOQTA:
             ratio_to_image_threshold=supcfg.get("ratio_to_image_threshold", 0.8),  # max fraction of page acceptable for height or width of a box
             overlap_threshold=supcfg.get("overlap_threshold", 0.60),
             pad_union_px=supcfg.get("pad_union_px", 0),
-            remove_duplicates=supcfg.get("remove_duplicates", True)
+            remove_duplicates=supcfg.get("remove_duplicates", True),
+            min_area_ratio=supcfg.get("min_area_ratio", 0.05),
+            dist_ratio=supcfg.get("dist_ratio", 0.05)
         )
         suppressor = Suppressor(sup_cfg)
         logging.info("NOQTA configured successfully.")
