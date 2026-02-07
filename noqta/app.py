@@ -4,7 +4,7 @@ from .vision.clusterer import Clusterer
 from .vision.scissors import Scissors
 from matplotlib import pyplot as plt
 from .vision.chunker import Chunker
-from PIL import ImageDraw,
+from PIL import ImageDraw
 import fitz  # PyMuPDF
 import numpy as np
 import logging
