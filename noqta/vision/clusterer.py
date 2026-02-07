@@ -81,7 +81,7 @@ class Clusterer:
 
     def _remove_frames(self, img: Image):
         W, H = img.size
-        img = np.array(img)
+        img = np.array(img, dtype=np.uint8)
         gx = cv2.Sobel(img, cv2.CV_32F, 1, 0, ksize=self.cfg.sobel_kernel_size)
         gy = cv2.Sobel(img, cv2.CV_32F, 0, 1, ksize=self.cfg.sobel_kernel_size)
         
