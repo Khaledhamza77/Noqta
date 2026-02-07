@@ -45,7 +45,7 @@ class SuppressorConfig:
     overlap_threshold: float = 0.60  # fraction of the smaller box area required to merge
     clamp: Optional[Tuple[int, int]] = None  # (W, H) to clamp boxes within image bounds
     pad_union_px: int = 0  # extra pixels to pad the union when enlarging bigger box
-    remove_duplicates: bool = True  # drop exact-duplicate boxes after processing
+    remove_duplicates: bool = False  # drop exact-duplicate boxes after processing
     min_area_ratio: float = 0.005 # percentage of og image area as minimum area of a box to not be considered large
     dist_ratio: float = 0.05 # percentage of maximum (width, height) of og image o be the minimum distance for two centers of bboxes to be considered close.
     min_area_ratio_to_remove: float = 0.001
