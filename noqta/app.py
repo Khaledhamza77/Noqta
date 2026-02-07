@@ -170,11 +170,11 @@ class NOQTA:
                     logging.info(f"Doc: {doc_name} -> Page {pidx}: reduced {len(boxes_low)} boxes to {len(cleaned_boxes)} after suppression")
                     os.makedirs(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes"), exist_ok=True)
                     
-                    draw = ImageDraw.Draw(gray)
+                    s0 = gray.copy(); draw = ImageDraw.Draw(s0)
                     for box in cleaned_boxes:
                         draw.rectangle(box, outline='red', width=3)
-                    if show_imgs: gray.show()
-                    gray.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"8_page_{pidx}_boxes_processed1.png"))
+                    if show_imgs: s0.show()
+                    s0.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"8_page_{pidx}_boxes_processed1.png"))
 
                     small_boxes, merged_small_boxes, final_boxes = suppressor.merge_and_remove_small(cleaned_boxes, (w_low, h_low))
 
