@@ -170,7 +170,7 @@ class NOQTA:
                                                         (w_low, h_low))
                     
                     cleaned_boxes = suppressor.process(boxes_low, (w_low, h_low))
-                    logging.info(f"Doc: {doc_name} -> Page {pidx}: reduced {len(boxes_low)} boxes to {len(cleaned_boxes)} after suppression")
+                    logging.info(f"Doc: {doc_name} -> Page {pidx}: reduced {len(boxes_low)} boxes to {len(cleaned_boxes)} after general suppression")
                     os.makedirs(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes"), exist_ok=True)
                     
                     s0 = gray.copy(); draw = ImageDraw.Draw(s0)
@@ -180,6 +180,7 @@ class NOQTA:
                     s0.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"8_page_{pidx}_boxes_processed1.png"))
 
                     small_boxes, merged_small_boxes, final_boxes = suppressor.merge_and_remove_small(cleaned_boxes, (w_low, h_low))
+                    logging.info(f"Doc: {doc_name} -> Page {pidx}: reduced {len(cleaned_boxes)} boxes to {len(final_boxes)} after suppression through merging small boxes")
 
                     sb1 = gray.copy(); draw1 = ImageDraw.Draw(sb1)
                     for box in small_boxes:
