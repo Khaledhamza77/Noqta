@@ -161,8 +161,6 @@ class Clusterer:
         Morphological dilation for black foreground using MinFilter on {black=0, white=255}.
         Kernel size = 2*radius + 1; repeat for iterations.
         """
-        if not self.cfg.use_dilation or self.cfg.dilate_radius_px <= 0:
-            return bin_L
         size = 2 * int(self.cfg.dilate_radius_px) + 1
         out = bin_L
         for _ in range(max(1, self.cfg.dilation_iterations)):
