@@ -200,9 +200,17 @@ class NOQTA:
                     if show_imgs: sb3.show()
                     sb3.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"11_page_{pidx}_final_boxes_low.png"))
 
+                    final_merged_boxes = suppressor.merge_high_overlap(final_boxes)
+
+                    sb4 = gray.copy(); draw4 = ImageDraw.Draw(sb4)
+                    for box in final_merged_boxes:
+                        draw4.rectangle(tuple(box), outline='red', width=3)
+                    if show_imgs: sb4.show()
+                    sb4.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"12_page_{pidx}_merged_final_boxes_low.png"))
+
 
                     
-                    boxes_high = chunker._scale_boxes_low_to_high(final_boxes,
+                    boxes_high = chunker._scale_boxes_low_to_high(final_merged_boxes,
                                                                 (w_low, h_low),
                                                                 (w_high, h_high))
                     himgBoxes = high_img.copy()
