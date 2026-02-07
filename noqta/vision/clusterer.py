@@ -139,7 +139,7 @@ class Clusterer:
             cv2.line(out1, (x,y1), (x,y2), (255,0,0), 4)
 
         #out2 og with edges removed (whitened)
-        out2 = np.array(img.copy()); w, h = img.size
+        out2 = np.array(img.copy())
         for x1,y,x2,_ in horizontals:
             cv2.line(out2, (x1,y), (x2,y), 255, 4)
         for x, y1, _, y2 in verticals:
