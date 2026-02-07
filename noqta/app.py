@@ -172,7 +172,6 @@ class NOQTA:
                     
                     draw = ImageDraw.Draw(gray)
                     for box in cleaned_boxes:
-                        print(box)
                         draw.rectangle(box, outline='red', width=3)
                     if show_imgs: gray.show()
                     gray.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"8_page_{pidx}_boxes_processed1.png"))
@@ -181,20 +180,19 @@ class NOQTA:
 
                     sb1 = gray.copy(); draw1 = ImageDraw.Draw(sb1)
                     for box in small_boxes:
-                        print(box)
-                        draw1.rectangle(box, outline='red', width=3)
+                        draw1.rectangle(tuple(box), outline='red', width=3)
                     if show_imgs: sb1.show()
                     sb1.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"9_page_{pidx}_small_boxes.png"))
 
                     sb2 = gray.copy(); draw2 = ImageDraw.Draw(sb2)
                     for box in merged_small_boxes:
-                        draw2.rectangle(box, outline='red', width=3)
+                        draw2.rectangle(tuple(box), outline='red', width=3)
                     if show_imgs: sb2.show()
                     sb2.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"10_page_{pidx}_small_boxes_merged.png"))
 
                     sb3 = gray.copy(); draw3 = ImageDraw.Draw(sb3)
                     for box in final_boxes:
-                        draw3.rectangle(box, outline='red', width=3)
+                        draw3.rectangle(tuple(box), outline='red', width=3)
                     if show_imgs: sb3.show()
                     sb3.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"11_page_{pidx}_final_boxes_low.png"))
 
