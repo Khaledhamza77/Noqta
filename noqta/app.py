@@ -219,7 +219,7 @@ class NOQTA:
                         draw4.rectangle(box, outline='red', width=3)
                     
                     if show_imgs: himgBoxes.show()
-                    himgBoxes.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"12_page_{pidx}_final_boxes_high.png"))
+                    himgBoxes.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"13_page_{pidx}_final_boxes_high.png"))
                     
                     Scissors.crop_image_by_boxes(
                         high_img,
