@@ -180,6 +180,7 @@ class NOQTA:
 
                     sb1 = gray.copy(); draw1 = ImageDraw.Draw(sb1)
                     for box in small_boxes:
+                        print(box)
                         draw1.rectangle(box, outline='red', width=3)
                     if show_imgs: sb1.show()
                     sb1.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"9_page_{pidx}_small_boxes.png"))
