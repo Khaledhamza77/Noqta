@@ -1,11 +1,10 @@
 from .configs import ClustererConfig, ChunkerConfig, SuppressorConfig
-from scipy.ndimage import distance_transform_edt
 from .vision.suppressor import Suppressor
 from .vision.clusterer import Clusterer
 from .vision.scissors import Scissors
 from matplotlib import pyplot as plt
 from .vision.chunker import Chunker
-from PIL import ImageDraw, Image
+from PIL import ImageDraw,
 import fitz  # PyMuPDF
 import numpy as np
 import logging
@@ -169,24 +168,49 @@ class NOQTA:
                     
                     cleaned_boxes = suppressor.process(boxes_low, (w_low, h_low))
                     logging.info(f"Doc: {doc_name} -> Page {pidx}: reduced {len(boxes_low)} boxes to {len(cleaned_boxes)} after suppression")
-                    draw = ImageDraw.Draw(gray.copy())
-                    if cleaned_boxes:
-                        os.makedirs(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes"), exist_ok=True)
-                        for box in cleaned_boxes:
-                            draw.rectangle(box, outline='red', width=3)
-                        if show_imgs: gray.show()
-                        
-                        boxes_high = chunker._scale_boxes_low_to_high(cleaned_boxes,
-                                                                    (w_low, h_low),
-                                                                    (w_high, h_high))
-                        draw2 = ImageDraw.Draw(high_img.copy())
-                        for box in boxes_high:
-                            draw2.rectangle(box, outline='red', width=3)
-                        
-                        if show_imgs: high_img.show()
-                        high_img.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"8_page_{pidx}_high_boxes.png"))
-                        Scissors.crop_image_by_boxes(
-                            high_img,
-                            boxes_high,
-                            os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes")
-                        )
+                    os.makedirs(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes"), exist_ok=True)
+                    
+                    draw = ImageDraw.Draw(gray)
+                    for box in cleaned_boxes:
+                        draw.rectangle(box, outline='red', width=3)
+                    if show_imgs: gray.show()
+                    gray.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"8_page_{pidx}_boxes_processed1.png"))
+
+                    small_boxes, merged_small_boxes, final_boxes = suppressor.merge_and_remove_small(self, cleaned_boxes, (w_low, h_low))
+
+                    sb1 = gray.copy(); draw1 = ImageDraw.Draw(sb1)
+                    for box in small_boxes:
+                        draw1.rectangle(box, outline='red', width=3)
+                    if show_imgs: sb1.show()
+                    sb1.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"9_page_{pidx}_small_boxes.png"))
+
+                    sb2 = gray.copy(); draw2 = ImageDraw.Draw(sb2)
+                    for box in merged_small_boxes:
+                        draw2.rectangle(box, outline='red', width=3)
+                    if show_imgs: sb2.show()
+                    sb2.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"10_page_{pidx}_small_boxes_merged.png"))
+
+                    sb3 = gray.copy(); draw3 = ImageDraw.Draw(sb3)
+                    for box in final_boxes:
+                        draw3.rectangle(box, outline='red', width=3)
+                    if show_imgs: sb3.show()
+                    sb3.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"11_page_{pidx}_final_boxes_low.png"))
+
+
+                    
+                    boxes_high = chunker._scale_boxes_low_to_high(final_boxes,
+                                                                (w_low, h_low),
+                                                                (w_high, h_high))
+                    himgBoxes = high_img.copy()
+                    draw4 = ImageDraw.Draw(himgBoxes)
+                    for box in boxes_high:
+                        draw4.rectangle(box, outline='red', width=3)
+                    
+                    if show_imgs: himgBoxes.show()
+                    himgBoxes.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"12_page_{pidx}_final_boxes_high.png"))
+                    
+                    Scissors.crop_image_by_boxes(
+                        high_img,
+                        boxes_high,
+                        os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes")
+                    )

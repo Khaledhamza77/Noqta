@@ -1,5 +1,7 @@
 from typing import List, Tuple, Optional
 from ..configs import SuppressorConfig
+import networkx as nx
+import numpy as np
 
 
 Box = Tuple[int, int, int, int]  # (x0, y0, x1, y1), inclusive/exclusive OK if consistent
@@ -181,6 +183,91 @@ class Suppressor:
         if self.cfg.remove_duplicates:
             bxs = self._deduplicate(bxs)
         return bxs
+
+    # ------------------------ Combining Small boxes ------------------------
+    
+    @staticmethod
+    def find_small_boxes(boxes, min_area):
+        boxes = np.asarray(boxes)
+
+        w = boxes[:, 2] - boxes[:, 0]
+        h = boxes[:, 3] - boxes[:, 1]
+        area = w * h
+
+        small_mask = area < min_area
+
+        return boxes[small_mask], boxes[~small_mask]
+    
+    @staticmethod
+    def box_center(box):
+        x1, y1, x2, y2 = box
+        return np.array([(x1 + x2) / 2, (y1 + y2) / 2])
+
+    @staticmethod
+    def boxes_intersect(b1, b2):
+        return not (
+            b1[2] < b2[0] or b1[0] > b2[2] or
+            b1[3] < b2[1] or b1[1] > b2[3]
+        )
+
+    @staticmethod
+    def build_graph(boxes, dist_thresh):
+        G = nx.Graph()
+
+        centers = np.array([Suppressor.box_center(b) for b in boxes])
+
+        for i in range(len(boxes)):
+            G.add_node(i)
+
+        for i in range(len(boxes)):
+            for j in range(i + 1, len(boxes)):
+                dist = np.linalg.norm(centers[i] - centers[j])
+                intersect = Suppressor.boxes_intersect(boxes[i], boxes[j])
+
+                if dist < dist_thresh or intersect:
+                    G.add_edge(i, j)
+
+        return G
+    
+    @staticmethod
+    def merge_components(boxes, graph):
+        merged_boxes = []
+
+        for comp in nx.connected_components(graph):
+            if len(comp) == 1:
+                # discard lonely small boxes
+                continue
+
+            comp_boxes = boxes[list(comp)]
+            x1 = comp_boxes[:, 0].min()
+            y1 = comp_boxes[:, 1].min()
+            x2 = comp_boxes[:, 2].max()
+            y2 = comp_boxes[:, 3].max()
+
+            merged_boxes.append([x1, y1, x2, y2])
+
+        return np.array(merged_boxes)
+    
+    def merge_and_remove_small(self, boxes, img_size):
+        w, h = img_size
+        min_area = self.cfg.min_area_ratio * (w * h)
+        dist_thresh = self.cfg.dist_ratio * max(w,  h)
+
+        # Step 1: find small boxes
+        small_boxes, large_boxes = Suppressor.find_small_boxes(boxes, min_area=min_area)
+
+        # Step 3: build graph
+        G = Suppressor.build_graph(small_boxes, dist_thresh=dist_thresh)
+
+        # Step 4: Merge small and remove singletons
+        merged_small_boxes = Suppressor.merge_components(small_boxes, G)
+
+        if len(merged_small_boxes) > 0:
+            final_boxes = np.vstack([large_boxes, merged_small_boxes])
+        else:
+            final_boxes = large_boxes.copy()
+
+        return small_boxes, merged_small_boxes, final_boxes
 
     # ------------------------------ Utilities ------------------------------
 

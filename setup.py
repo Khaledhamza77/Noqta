@@ -13,7 +13,7 @@ def read_requirements():
 
 setuptools.setup(
     name="noqta",
-    version="0.0.2",
+    version="0.0.3",
     author="Khaled Ibrahim",
     author_email="khaled.ibrahim@crowdlinker.com",
     description="Python package for document layout chunking using traditional computer vision.",
