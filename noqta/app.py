@@ -56,7 +56,7 @@ class NOQTA:
             ratio_to_image_threshold=supcfg.get("ratio_to_image_threshold", 0.8),  # max fraction of page acceptable for height or width of a box
             overlap_threshold=supcfg.get("overlap_threshold", 0.60),
             pad_union_px=supcfg.get("pad_union_px", 0),
-            remove_duplicates=supcfg.get("remove_duplicates", False),
+            remove_duplicates=supcfg.get("remove_duplicates", True),
             min_area_ratio=supcfg.get("min_area_ratio", 0.005),
             dist_ratio=supcfg.get("dist_ratio", 0.05),
             min_area_ratio_to_remove=supcfg.get("min_area_ratio_to_remove", 0.001)
@@ -200,7 +200,7 @@ class NOQTA:
                     if show_imgs: sb3.show()
                     sb3.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"11_page_{pidx}_final_boxes_low.png"))
 
-                    final_merged_boxes = suppressor.merge_high_overlap(final_boxes)
+                    final_merged_boxes = suppressor.merge_high_overlap(list(map(tuple, final_boxes)))
 
                     sb4 = gray.copy(); draw4 = ImageDraw.Draw(sb4)
                     for box in final_merged_boxes:
