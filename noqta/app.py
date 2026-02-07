@@ -106,9 +106,15 @@ class NOQTA:
                     if show_imgs: edges_detected.show()
                     del edges_detected
 
-                    bin_l = clusterer._to_binary_L(edges_removed)
-                    if show_imgs: bin_l.show()
-                    bin_l.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"5_page_{pidx}_binarized.png"))
+                    if clusterer.cfg.type_smudging != 'edt':
+                        bin_l = clusterer._to_binary_L(edges_removed)
+                        fp = f"5_page_{pidx}_binarized.png"
+                        if show_imgs: bin_l.show()
+                    else:
+                        bin_l = edges_removed
+                        fp = f"5_page_{pidx}_binarized_(eq_to_edt).png"
+                        logging.info('Skipped Binarization since EDT is used for smudging!')
+                    bin_l.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", fp))
 
                     points_xy = clusterer._extract_black_xy_from_L(bin_l)
                     logging.info(f"Doc: {doc_name} -> Page {pidx}: extracted {points_xy.shape[0]} black pixel points")
@@ -163,7 +169,7 @@ class NOQTA:
                     
                     cleaned_boxes = suppressor.process(boxes_low, (w_low, h_low))
                     logging.info(f"Doc: {doc_name} -> Page {pidx}: reduced {len(boxes_low)} boxes to {len(cleaned_boxes)} after suppression")
-                    draw = ImageDraw.Draw(gray)
+                    draw = ImageDraw.Draw(gray.copy())
                     if cleaned_boxes:
                         os.makedirs(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes"), exist_ok=True)
                         for box in cleaned_boxes:
@@ -173,7 +179,7 @@ class NOQTA:
                         boxes_high = chunker._scale_boxes_low_to_high(cleaned_boxes,
                                                                     (w_low, h_low),
                                                                     (w_high, h_high))
-                        draw2 = ImageDraw.Draw(high_img)
+                        draw2 = ImageDraw.Draw(high_img.copy())
                         for box in boxes_high:
                             draw2.rectangle(box, outline='red', width=3)
                         
