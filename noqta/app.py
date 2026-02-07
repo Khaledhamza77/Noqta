@@ -100,17 +100,17 @@ class NOQTA:
                     if show_imgs: gray_smudged.show()
                     gray_smudged.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"2_page_{pidx}_smudged.png"))
 
-                    bin_l = clusterer._to_binary_L(gray_smudged)
-                    if show_imgs: bin_l.show()
-                    bin_l.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"3_page_{pidx}_binarized.png"))
-
-                    edges_detected, edges_removed = clusterer._remove_frames(img=bin_l)
-                    edges_detected.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"4_page_{pidx}_detected_frames.png"))
-                    edges_removed.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"5_page_{pidx}_frames_removed.png"))
+                    edges_detected, edges_removed = clusterer._remove_frames(img=gray_smudged)
+                    edges_detected.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"3_page_{pidx}_detected_frames.png"))
+                    edges_removed.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"4_page_{pidx}_frames_removed.png"))
                     if show_imgs: edges_detected.show()
                     del edges_detected
 
-                    points_xy = clusterer._extract_black_xy_from_L(edges_removed)
+                    bin_l = clusterer._to_binary_L(edges_removed)
+                    if show_imgs: bin_l.show()
+                    bin_l.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"5_page_{pidx}_binarized.png"))
+
+                    points_xy = clusterer._extract_black_xy_from_L(bin_l)
                     logging.info(f"Doc: {doc_name} -> Page {pidx}: extracted {points_xy.shape[0]} black pixel points")
                     plt.scatter(points_xy[:, 0], points_xy[:, 1],
                                             s=1, c="black", marker="s")
