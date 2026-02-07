@@ -230,13 +230,21 @@ class Suppressor:
         return G
     
     @staticmethod
-    def merge_components(boxes, graph):
+    def merge_components(boxes, graph, min_area):
         merged_boxes = []
 
         for comp in nx.connected_components(graph):
             if len(comp) == 1:
-                # discard lonely small boxes
-                continue
+                comp_box = boxes[comp[0]]
+                x1 = comp_box[0]; x2 = comp_box[2]
+                y1 = comp_box[1]; y2 = comp_box[3]
+                w = x2 - x1
+                h = y2 - y1
+                area = w * h
+                if area <= min_area:
+                    continue
+                else:
+                    merged_boxes.append([x1, y1, x2, y2])
 
             comp_boxes = boxes[list(comp)]
             x1 = comp_boxes[:, 0].min()
@@ -252,6 +260,7 @@ class Suppressor:
         w, h = img_size
         min_area = self.cfg.min_area_ratio * (w * h)
         dist_thresh = self.cfg.dist_ratio * max(w,  h)
+        min_min_area = self.cfg.min_area_ratio_to_remove * (w * h)
 
         # Step 1: find small boxes
         small_boxes, large_boxes = Suppressor.find_small_boxes(boxes, min_area=min_area)
@@ -260,7 +269,7 @@ class Suppressor:
         G = Suppressor.build_graph(small_boxes, dist_thresh=dist_thresh)
 
         # Step 4: Merge small and remove singletons
-        merged_small_boxes = Suppressor.merge_components(small_boxes, G)
+        merged_small_boxes = Suppressor.merge_components(small_boxes, G, min_min_area)
 
         if len(merged_small_boxes) > 0:
             final_boxes = np.vstack([large_boxes, merged_small_boxes])

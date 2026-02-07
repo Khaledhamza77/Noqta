@@ -57,8 +57,9 @@ class NOQTA:
             overlap_threshold=supcfg.get("overlap_threshold", 0.60),
             pad_union_px=supcfg.get("pad_union_px", 0),
             remove_duplicates=supcfg.get("remove_duplicates", True),
-            min_area_ratio=supcfg.get("min_area_ratio", 0.05),
-            dist_ratio=supcfg.get("dist_ratio", 0.05)
+            min_area_ratio=supcfg.get("min_area_ratio", 0.005),
+            dist_ratio=supcfg.get("dist_ratio", 0.05),
+            min_area_ratio_to_remove=supcfg.get("min_area_ratio_to_remove", 0.001)
         )
         suppressor = Suppressor(sup_cfg)
         logging.info("NOQTA configured successfully.")
