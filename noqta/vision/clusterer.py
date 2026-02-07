@@ -154,7 +154,7 @@ class Clusterer:
         Euclidean Distance Transform for black foreground.
         """
         dist = distance_transform_edt(~np.array(bin_L))   # distance from black
-        return Image.fromarray(dist < self.cfg.threshold_edt, mode="L")
+        return Image.fromarray(dist < self.cfg.threshold_edt)
 
     def _dilate(self, bin_L: Image.Image) -> Image.Image:
         """
