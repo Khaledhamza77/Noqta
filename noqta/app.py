@@ -172,6 +172,7 @@ class NOQTA:
                     
                     draw = ImageDraw.Draw(gray)
                     for box in cleaned_boxes:
+                        print(box)
                         draw.rectangle(box, outline='red', width=3)
                     if show_imgs: gray.show()
                     gray.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"8_page_{pidx}_boxes_processed1.png"))
