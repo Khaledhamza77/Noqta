@@ -176,7 +176,7 @@ class NOQTA:
                     if show_imgs: gray.show()
                     gray.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"8_page_{pidx}_boxes_processed1.png"))
 
-                    small_boxes, merged_small_boxes, final_boxes = suppressor.merge_and_remove_small(self, cleaned_boxes, (w_low, h_low))
+                    small_boxes, merged_small_boxes, final_boxes = suppressor.merge_and_remove_small(cleaned_boxes, (w_low, h_low))
 
                     sb1 = gray.copy(); draw1 = ImageDraw.Draw(sb1)
                     for box in small_boxes:
