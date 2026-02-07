@@ -134,16 +134,16 @@ class Clusterer:
         out1 = np.array(img.copy())
         out1 = cv2.cvtColor(out1, cv2.COLOR_GRAY2RGB)
         for x1,y,x2,_ in horizontals:
-            cv2.line(out1, (x1,y), (x2,y), (255,0,0), 2)
+            cv2.line(out1, (x1,y), (x2,y), (255,0,0), 4)
         for x, y1, _, y2 in verticals:
-            cv2.line(out1, (x,y1), (x,y2), (255,0,0), 2)
+            cv2.line(out1, (x,y1), (x,y2), (255,0,0), 4)
 
         #out2 og with edges removed (whitened)
-        out2 = np.array(img.copy())
+        out2 = np.array(img.copy()); w, h = img.size
         for x1,y,x2,_ in horizontals:
-            cv2.line(out2, (x1,y), (x2,y), (255,255,255), 2)
+            cv2.line(out2, (x1,y), (x2,y), 255, 4)
         for x, y1, _, y2 in verticals:
-            cv2.line(out2, (x,y1), (x,y2), (255,255,255), 2)
+            cv2.line(out2, (x,y1), (x,y2), 255, 4)
         
         return Image.fromarray(out1), Image.fromarray(out2, mode="L")
 
