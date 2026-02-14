@@ -254,7 +254,7 @@ class NOQTA:
                         _, h_box = x2 - x1, y2 - y1
                         if h_box >= 0.5 * h_high:
                             os.makedirs(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes", f"long_box_{i}"), exist_ok=True)
-                            edt_box = scissors._prepare_image(high_img, box)
+                            high_box, edt_box = scissors._prepare_image(high_img, box)
                             edt_box.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes", f"long_box_{i}", f"1_resized_box.png"))
                             edges_img, edges_box = scissors._find_horizontal_edges(edt_box)
                             edges_img.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes", f"long_box_{i}", f"2_edges.png"))
@@ -270,7 +270,7 @@ class NOQTA:
                                     high_img.size,
                                     splitting_points
                                 ),
-                                high_img=high_img.crop((x1, y1, x2, y2)),
+                                high_img=high_box,
                                 path=os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes")
                             )
                         else:

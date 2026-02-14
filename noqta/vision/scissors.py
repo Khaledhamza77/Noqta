@@ -105,7 +105,7 @@ class Scissors:
         w, h = crop.size
         new_w = self.cfg.new_w
         new_h = int(round((h / w) * new_w))
-        return self._edt(crop.resize((new_w, new_h))) if self.cfg.use_edt else crop.resize((new_w, new_h))
+        return crop, self._edt(crop.resize((new_w, new_h))) if self.cfg.use_edt else crop.resize((new_w, new_h))
     
     def _find_horizontal_edges(
         self,
