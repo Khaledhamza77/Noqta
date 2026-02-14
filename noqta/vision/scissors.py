@@ -229,10 +229,13 @@ class Scissors:
         y_start = 0
         w, _ = high_img.size
         for i, cut in enumerate(y_cuts):
-            crop = high_img.crop((0, y_start, w, cut))
-            print(f"Crop {i}: y_start={y_start}, cut={cut}")
-            y_start = cut
-            crop.save(f'{path}/box_{box_index}_{i}.jpg')
+            if cut - y_start > 10:
+                crop = high_img.crop((0, y_start, w, cut))
+                print(f"Crop {i}: y_start={y_start}, cut={cut}")
+                y_start = cut
+                crop.save(f'{path}/box_{box_index}_{i}.jpg')
+            else:
+                y_start = cut
     
     @staticmethod
     def _scale_lines(
@@ -240,7 +243,7 @@ class Scissors:
         high_size: Tuple[int, int],
         lines: List[Tuple[float, float, float, float]]
     ) -> List[Tuple[float, float, float, float]]:
-        low_w, low_w = low_size
+        low_w, low_h = low_size
         high_w, high_h = high_size
         
         sx = high_w / low_w
