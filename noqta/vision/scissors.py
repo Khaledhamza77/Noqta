@@ -1,11 +1,15 @@
-from typing import List, Tuple
+from scipy.ndimage import distance_transform_edt
+from typing import List, Tuple, Optional
+from ..configs import ScissorsConfig
 from PIL import Image
+import numpy as np
+import cv2
 import os
 
 
 class Scissors:
-    def __init__(self):
-        pass
+    def __init__(self, cfg: Optional[ScissorsConfig] = None):
+        self.cfg = cfg
 
     @staticmethod #UNDER REVIEW NOT USED OR TESTED
     def order_boxes(
@@ -92,6 +96,71 @@ class Scissors:
 
         return ordered_indices
     
+    def _prepare_image(self, img: Image.Image, box: Tuple[float, float, float, float]) -> Image.Image:
+        """
+        Crop to box and resize to new_w while maintaining aspect ratio.
+        """
+        x1, y1, x2, y2 = box
+        crop = img.crop((x1, y1, x2, y2))
+        w, h = crop.size
+        new_w = self.cfg.new_w
+        new_h = int(round((h / w) * new_w))
+        return self._edt(crop.resize((new_w, new_h))) if self.cfg.use_edt else crop.resize((new_w, new_h))
+    
+    def _find_horizontal_edges(
+        self,
+        img: Image.Image
+    ):
+        W, H = img.size
+        img = np.array(img)
+        gx = cv2.Sobel(img, cv2.CV_32F, 1, 0, ksize=self.cfg.sobel_kernel_size)
+        gy = cv2.Sobel(img, cv2.CV_32F, 0, 1, ksize=self.cfg.sobel_kernel_size)
+
+        # Gradient magnitude
+        mag = cv2.magnitude(gx, gy)  # float32
+        # Normalize to 8-bit for thresholding / visualization
+        mag_u8 = cv2.convertScaleAbs(mag)
+        _, edges = cv2.threshold(mag_u8, 0, 255,
+                                cv2.THRESH_BINARY + cv2.THRESH_OTSU
+                                )
+        min_line_length_h = int(W * self.cfg.min_ratio_to_side)
+        lines = cv2.HoughLinesP(
+            edges,
+            rho=self.cfg.rho,
+            theta=self.cfg.theta,
+            threshold=self.cfg.threshold,
+            maxLineGap=self.cfg.max_line_gap
+        )
+        horizontals: List[Tuple[int, int, int, int]] = []
+        if lines is not None:
+            angle_tol = np.deg2rad(self.cfg.angle_tolerance_degree)
+            for x1, y1, x2, y2 in lines[:, 0]:
+                dx = x2 - x1
+                dy = y2 - y1
+                length = np.hypot(dx, dy)
+                if length < 2:  # ignore tiny segments
+                    continue
+                angle = np.arctan2(dy, dx)  # radians
+
+                # Normalize angle to [-pi/2, pi/2] for easier checks
+                a = ((angle + np.pi/2) % np.pi) - np.pi/2
+
+                # Horizontal if near 0°, Vertical if near ±90°
+                if abs(a) <= angle_tol:
+                    # Horizontal: check projected span in X
+                    span = abs(x2 - x1)
+                    # Normalize y to average to reduce small skew artifacts
+                    if span >= min_line_length_h:
+                        y = int(round((y1 + y2) / 2))
+                        horizontals.append((min(x1, x2), y, max(x1, x2), y))
+
+        # out1 og image with detected edges
+        out1 = np.array(img.copy())
+        out1 = cv2.cvtColor(out1, cv2.COLOR_GRAY2RGB)
+        for x1, y, x2, _ in horizontals:
+            cv2.line(out1, (x1, y), (x2, y), (255, 0, 0), 4)
+
+        return Image.fromarray(out1), horizontals
 
     @staticmethod
     def _clip_box_to_image(
@@ -115,11 +184,80 @@ class Scissors:
         if y2 <= y1: y2 = min(H, y1 + 1)
 
         return (x1, y1, x2, y2)
+    
+    def _edt(self, bin_L: Image.Image) -> Image.Image:
+        """
+        Euclidean Distance Transform for black foreground.
+        """
+        dist = distance_transform_edt(~np.array(bin_L))   # distance from black
+        img = (dist < self.cfg.edt_threshold).astype(np.uint8) * 255
+        return Image.fromarray(img, mode="L")
+    
+    def _find_splitting_points(
+        self,
+        img_size: Tuple[int, int] = None,
+        edges: List[Tuple[float, float, float, float]] = None
+    ) -> List[Tuple[float, float, float, float]]:
+        w, h = img_size
+
+        n = int(round(max(2, ((9 * h) / (5 * w))), 0))
+        new_h = int(round(h / n, 0))
+        potential_points = list(range(0, h, new_h))[1:]
+
+        Hs_y = [edge[1] for edge in edges]
+        splitting_points = []
+        for point in potential_points:
+            splitting_points.append(edges[np.argmin([abs(point - y) for y in Hs_y])])
+        splitting_points.append((0, h, w, h))
+        
+        return splitting_points
+    
+    @staticmethod
+    def _crop_at_high(
+        box_index: int,
+        high_lines: List[Tuple[float, float, float, float]],
+        high_img: Image.Image,
+        path: str
+    ) -> None:
+        y_start = 0
+        w, _ = high_img.img
+        for i, line in enumerate(high_lines):
+            _, y1, _, _ = line
+            crop = high_img.crop((0, y_start, w, y1))
+            y_start = y1
+            crop.save(f'{path}/box_{box_index}_{i}.jpg')
+    
+    @staticmethod
+    def _scale_lines(
+        low_size: Tuple[int, int],
+        high_size: Tuple[int, int],
+        lines: List[Tuple[float, float, float, float]]
+    ) -> List[Tuple[float, float, float, float]]:
+        low_w, low_w = low_size
+        high_w, high_h = high_size
+        
+        sx = high_w / low_w
+        sy = high_h / low_w
+
+        high_lines = []
+        for line in lines:
+            x1, y1, x2, y2 = line
+            high_lines.append(
+                (
+                    x1 * sx,
+                    y1 * sy,
+                    x2 * sx,
+                    y2 * sy
+                )
+            )
+
+        return high_lines
 
     @staticmethod
     def crop_image_by_boxes(
+        i: int,
         image: Image.Image,
-        boxes: List[Tuple[float, float, float, float]],
+        box: Tuple[float, float, float, float],
         path_to_save: str,
     ) -> List[Image.Image]:
         """
@@ -142,9 +280,7 @@ class Scissors:
             List of PIL Image crops in the same order as input boxes.
         """
         W, H = image.size
-        for i, box in enumerate(boxes):
-            # Clip to image bounds
-            x1, y1, x2, y2 = Scissors._clip_box_to_image(box, (W, H))
-            # Crop and save
-            crop = image.crop((x1, y1, x2, y2))
-            crop.save(os.path.join(path_to_save, f"box_{i}.jpeg"))
+        x1, y1, x2, y2 = Scissors._clip_box_to_image(box, (W, H))
+        # Crop and save
+        crop = image.crop((x1, y1, x2, y2))
+        crop.save(os.path.join(path_to_save, f"box_{i}.jpeg"))

@@ -1,4 +1,4 @@
-from .configs import ClustererConfig, ChunkerConfig, SuppressorConfig
+from .configs import ClustererConfig, ChunkerConfig, SuppressorConfig, ScissorsConfig
 from .vision.suppressor import Suppressor
 from .vision.clusterer import Clusterer
 from .vision.scissors import Scissors
@@ -29,8 +29,19 @@ class NOQTA:
         cl_cfg = ClustererConfig(
             max_px=clfg.get("max_px", 600), # Longest side of page in pixels for speed
             invert=clfg.get("invert", False), # set True if your pages are white-on-black
+
+            # frame removal
+            sobel_kernel_size=clfg.get("sobel_kernel_size", 3),
+            rho=clfg.get("rho", 1.0),
+            theta=clfg.get("theta", np.pi / 180),
+            threshold=clfg.get("threshold", 100),
+            angle_tolerance_degree=clfg.get("angle_tolerance_degree", 1.0),
+            max_line_gap=clfg.get("max_line_gap", 5),
+            min_ratio_to_side=clfg.get("min_ratio_to_side", 0.8),
+            edge_thickness=clfg.get("edge_thickness", 2),
+
             # Smudging to connect fragments (tune these)
-            use_smudging=clfg.get("use_dilation", True),
+            use_smudging=clfg.get("use_smudging", True),
             type_smudging=clfg.get("type_smudging", "edt"), # 'edt' or 'dilation'
             threshold_edt=clfg.get("threshold_edt", 1),
             dilate_radius_px=clfg.get("dilate_radius_px", 1),
@@ -62,8 +73,24 @@ class NOQTA:
             min_area_ratio_to_remove=supcfg.get("min_area_ratio_to_remove", 0.001)
         )
         suppressor = Suppressor(sup_cfg)
+
+        scrscfg = self.config.get("scissors", {})
+        scrs_cfg = ScissorsConfig(
+            new_w=scrscfg.get("new_w", 600),
+            use_edt=scrscfg.get("use_edt", True),
+            edt_threshold=scrscfg.get("edt_threshold", 1),
+            max_ratio=scrscfg.get("max_ratio", (5, 9)),
+            sobel_kernel_size=scrscfg.get("sobel_kernel_size", 3),
+            rho=scrscfg.get("rho", 1.0),
+            theta=scrscfg.get("theta", np.pi / 180),
+            threshold=scrscfg.get("threshold", 300),
+            angle_tolerance_degree=scrscfg.get("angle_tolerance_degree", 1.0),
+            max_line_gap=scrscfg.get("max_line_gap", 5),
+            min_ratio_to_side=scrscfg.get("min_ratio_to_side", 0.8)
+        )
+        scissors = Scissors(scrs_cfg)
         logging.info("NOQTA configured successfully.")
-        return cluster, chunker, suppressor
+        return cluster, chunker, suppressor, scissors
 
     @staticmethod
     def _get_doc_name(pdf_path: str) -> str:
@@ -73,7 +100,7 @@ class NOQTA:
         return doc_name
 
     def run(self, show_imgs: bool = False):
-        clusterer, chunker, suppressor = self.configure()
+        clusterer, chunker, suppressor, scissors = self.configure()
         for pdf_path in self.paths:
             doc_name = self._get_doc_name(pdf_path)
             logging.info(f"Processing document: {doc_name}")
@@ -213,16 +240,43 @@ class NOQTA:
                     boxes_high = chunker._scale_boxes_low_to_high(final_merged_boxes,
                                                                 (w_low, h_low),
                                                                 (w_high, h_high))
+                    # split big boxes into smaller chunks using the scissors class
                     himgBoxes = high_img.copy()
                     draw4 = ImageDraw.Draw(himgBoxes)
                     for box in boxes_high:
                         draw4.rectangle(box, outline='red', width=3)
                     
                     if show_imgs: himgBoxes.show()
-                    himgBoxes.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"13_page_{pidx}_final_boxes_high.png"))
-                    
-                    Scissors.crop_image_by_boxes(
-                        high_img,
-                        boxes_high,
-                        os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes")
-                    )
+                    himgBoxes.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"13_page_{pidx}_boxes_high.png"))
+
+                    for i, box in enumerate(boxes_high):
+                        x1, y1, x2, y2 = box
+                        _, h_box = x2 - x1, y2 - y1
+                        if h_box >= 0.5 * h_high:
+                            os.makedirs(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes", f"long_box_{i}"), exist_ok=True)
+                            edt_box = scissors._prepare_image(high_img, box)
+                            edt_box.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes", f"long_box_{i}", f"1_resized_box.png"))
+                            edges_img, edges_box = scissors._find_horizontal_edges(edt_box)
+                            edges_img.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes", f"long_box_{i}", f"2_edges.png"))
+                            splitting_points = scissors._find_splitting_points(edt_box.size, edges_box)
+                            draw = ImageDraw.Draw(edges_img)
+                            for x1, y, x2, _ in splitting_points:
+                                draw.line([(x1, y), (x2, y)], fill='blue', width=2)
+                            edges_img.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes", f"long_box_{i}", f"3_edges_to_split_at.png"))
+                            scissors._crop_at_high(
+                                box_index=i,
+                                high_lines=scissors._scale_lines(
+                                    edt_box.size,
+                                    high_img.size,
+                                    splitting_points
+                                ),
+                                high_img=high_img,
+                                path=os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes")
+                            )
+                        else:
+                            scissors.crop_image_by_boxes(
+                                i=i,
+                                image=high_img,
+                                box=box,
+                                path_to_save=os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes")
+                            )

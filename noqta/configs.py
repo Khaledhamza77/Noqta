@@ -17,7 +17,7 @@ class ClustererConfig:
     threshold: int = 100
     angle_tolerance_degree: float = 1.0
     max_line_gap: int = 5
-    min_ratio_to_side: float = 0.9
+    min_ratio_to_side: float = 0.8
     edge_thickness: int = 2
 
     # --- Smudge ---
@@ -30,6 +30,7 @@ class ClustererConfig:
     # --- Hierarchical clustering ---
     hier_distance_threshold: float = 6.0  # pixels; akin to “merge radius”
     hier_linkage: str = "single"          # 'single'|'complete'|'average'|'ward'
+
 
 @dataclass
 class ChunkerConfig:
@@ -49,3 +50,17 @@ class SuppressorConfig:
     min_area_ratio: float = 0.005 # percentage of og image area as minimum area of a box to not be considered large
     dist_ratio: float = 0.05 # percentage of maximum (width, height) of og image o be the minimum distance for two centers of bboxes to be considered close.
     min_area_ratio_to_remove: float = 0.001
+
+@dataclass
+class ScissorsConfig:
+    new_w: int = 600 # pixels; it is the new width to resize the high-resolution width of the bbox to
+    use_edt: bool = True
+    edt_threshold: int = 1
+    max_ratio: Tuple[int, int] = (5, 9) # maximum aspect ratio where height cannot have a ratio bigger than this to width
+    sobel_kernel_size: int = 3
+    rho: float = 1.0
+    theta: float = np.pi / 180
+    threshold: int = 300
+    angle_tolerance_degree: float = 1.0
+    max_line_gap: int = 10
+    min_ratio_to_side: float = 0.95
