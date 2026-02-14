@@ -263,16 +263,20 @@ class NOQTA:
                             for x1, y, x2, _ in splitting_points:
                                 draw.line([(x1, y), (x2, y)], fill='blue', width=2)
                             edges_img.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes", f"long_box_{i}", f"3_edges_to_split_at.png"))
-                            scissors._crop_at_high(
-                                box_index=i,
-                                high_lines=scissors._scale_lines(
-                                    edt_box.size,
-                                    high_box.size,
-                                    splitting_points
-                                ),
-                                high_img=high_box,
-                                path=os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes")
-                            )
+                            if splitting_points:
+                                scissors._crop_at_high(
+                                    box_index=i,
+                                    high_lines=scissors._scale_lines(
+                                        edt_box.size,
+                                        high_box.size,
+                                        splitting_points
+                                    ),
+                                    high_img=high_box,
+                                    path=os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes")
+                                )
+                            else:
+                                logging.info(f"Doc: {doc_name} -> Page {pidx} -> Box {i}: No splitting points found for this long box, saving as is.")
+                                high_box.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes", f"box_{i}.png"))
                         else:
                             scissors.crop_image_by_boxes(
                                 i=i,

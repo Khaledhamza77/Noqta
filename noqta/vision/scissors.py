@@ -208,7 +208,6 @@ class Scissors:
         splitting_points = []
         for point in potential_points:
             splitting_points.append(edges[np.argmin([abs(point - y) for y in Hs_y])])
-        splitting_points.append((0, h, w, h))
         
         return splitting_points
     
@@ -219,12 +218,19 @@ class Scissors:
         high_img: Image.Image,
         path: str
     ) -> None:
+        
+        y_cuts: List[float] = [t[1] for t in high_lines]
+
+        if y_cuts[len(y_cuts) - 1] < high_img.size[1] - 10:
+            y_cuts.append(high_img.size[1])
+        else:
+            y_cuts[len(y_cuts) - 1] = high_img.size[1]
+
         y_start = 0
         w, _ = high_img.size
-        for i, line in enumerate(high_lines):
-            _, y1, _, _ = line
-            crop = high_img.crop((0, y_start, w, y1))
-            y_start = y1
+        for i, cut in enumerate(y_cuts):
+            crop = high_img.crop((0, y_start, w, cut))
+            y_start = cut
             crop.save(f'{path}/box_{box_index}_{i}.jpg')
     
     @staticmethod
