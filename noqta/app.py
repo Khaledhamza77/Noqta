@@ -270,7 +270,7 @@ class NOQTA:
                                     high_img.size,
                                     splitting_points
                                 ),
-                                high_img=high_img,
+                                high_img=high_img.crop((x1, y1, x2, y2)),
                                 path=os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes")
                             )
                         else:
