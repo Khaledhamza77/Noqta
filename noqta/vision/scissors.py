@@ -247,7 +247,7 @@ class Scissors:
         high_w, high_h = high_size
         
         sx = high_w / low_w
-        sy = high_h / low_w
+        sy = high_h / low_h
 
         high_lines = []
         for line in lines:
