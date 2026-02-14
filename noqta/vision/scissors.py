@@ -230,6 +230,7 @@ class Scissors:
         w, _ = high_img.size
         for i, cut in enumerate(y_cuts):
             crop = high_img.crop((0, y_start, w, cut))
+            print(f"Crop {i}: y_start={y_start}, cut={cut}")
             y_start = cut
             crop.save(f'{path}/box_{box_index}_{i}.jpg')
     
