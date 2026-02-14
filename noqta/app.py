@@ -267,7 +267,7 @@ class NOQTA:
                                 box_index=i,
                                 high_lines=scissors._scale_lines(
                                     edt_box.size,
-                                    high_img.size,
+                                    high_box.size,
                                     splitting_points
                                 ),
                                 high_img=high_box,
