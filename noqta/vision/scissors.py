@@ -220,7 +220,7 @@ class Scissors:
         path: str
     ) -> None:
         y_start = 0
-        w, _ = high_img.img
+        w, _ = high_img.size
         for i, line in enumerate(high_lines):
             _, y1, _, _ = line
             crop = high_img.crop((0, y_start, w, y1))
