@@ -36,10 +36,11 @@ class Timer:
 
     def save_to_csv(self, file_path: str):
         df = pd.DataFrame(self.records)
-        overview1, overview2 = self.save_overview(df)
+        overview1, overview2, overview3 = self.save_overview(df)
         df.to_csv(file_path, index=False)
         overview1.to_csv(file_path.replace(".csv", "_overview1.csv"), index=False)
         overview2.to_csv(file_path.replace(".csv", "_overview2.csv"), index=False)
+        overview3.to_csv(file_path.replace(".csv", "_overview3.csv"), index=False)
 
     def save_overview(self, df):
         # Create a pivot table to show average time taken per page per document regardless of step
@@ -51,4 +52,7 @@ class Timer:
 
         # Create a pivot table to show average time taken per step across all documents and pages
         overview2 = df.groupby("step_name")["time_taken_seconds"].mean().reset_index()
-        return overview1, overview2
+
+        # create a third overview that shows the total time taken per document
+        overview3 = df.groupby("document_name")["time_taken_seconds"].sum().reset_index
+        return overview1, overview2, overview3
