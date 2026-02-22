@@ -1,4 +1,5 @@
-from noqta.vision.splitter import Splitter
+from .vision.splitter import Splitter
+from .timer import Timer
 
 from .configs import ClustererConfig, ChunkerConfig, SplitterConfig, SuppressorConfig, ScissorsConfig
 from .vision.suppressor import Suppressor
@@ -16,6 +17,7 @@ class NOQTA:
     def __init__(self, path: str, config: dict):
         logging.basicConfig(level=logging.INFO)
         self.config = config
+        self.timer = Timer()
         if os.path.isfile(path):
             self.paths = [path]
             logging.info(f"Single PDF file provided: {path}")
@@ -121,150 +123,159 @@ class NOQTA:
                 for pidx in page_indices:
                     os.makedirs(os.path.join(self.output_dir, doc_name, f"page_{pidx}"), exist_ok=True)
 
-                    gray, scale = clusterer._render_page_gray(doc, pidx)
-                    w, h = gray.size
-                    logging.info(f"Doc: {doc_name} -> Page {pidx}: rendered (crop and binarization) grayscale image of size {w}x{h}")
+                    with self.timer.time_step(doc_name, pidx, "render_and_preprocess"):
+                        gray, scale = clusterer._render_page_gray(doc, pidx)
+                        w, h = gray.size
+                        logging.info(f"Doc: {doc_name} -> Page {pidx}: rendered (crop and binarization) grayscale image of size {w}x{h}")
 
                     if show_imgs: gray.show() 
                     gray.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"1_page_{pidx}_gray.png"))
 
-                    if clusterer.cfg.use_smudging:
-                        if clusterer.cfg.type_smudging == 'dilation':
-                            gray_smudged = clusterer._dilate(gray)
-                        elif clusterer.cfg.type_smudging == 'edt':
-                            gray_smudged = clusterer._edt(gray)
+                    with self.timer.time_step(doc_name, pidx, "smudging_edt_or_dilation"):
+                        if clusterer.cfg.use_smudging:
+                            if clusterer.cfg.type_smudging == 'dilation':
+                                gray_smudged = clusterer._dilate(gray)
+                            elif clusterer.cfg.type_smudging == 'edt':
+                                gray_smudged = clusterer._edt(gray)
+                            else:
+                                raise ValueError(f"Unknown smudging type: {clusterer.cfg.type_smudging}")
                         else:
-                            raise ValueError(f"Unknown smudging type: {clusterer.cfg.type_smudging}")
-                    else:
-                        gray_smudged = gray
-                    if show_imgs: gray_smudged.show()
-                    gray_smudged.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"2_page_{pidx}_smudged.png"))
+                            gray_smudged = gray
+                        if show_imgs: gray_smudged.show()
+                        gray_smudged.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"2_page_{pidx}_smudged.png"))
 
-                    edges_detected, edges_removed = clusterer._remove_frames(img=gray_smudged)
-                    edges_detected.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"3_page_{pidx}_detected_frames.png"))
-                    edges_removed.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"4_page_{pidx}_frames_removed.png"))
-                    if show_imgs: edges_detected.show()
-                    del edges_detected
+                    with self.timer.time_step(doc_name, pidx, "frame_removal_and_binarization"):
+                        edges_detected, edges_removed = clusterer._remove_frames(img=gray_smudged)
+                        edges_detected.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"3_page_{pidx}_detected_frames.png"))
+                        edges_removed.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"4_page_{pidx}_frames_removed.png"))
+                        if show_imgs: edges_detected.show()
+                        del edges_detected
 
-                    if clusterer.cfg.type_smudging != 'edt':
-                        bin_l = clusterer._to_binary_L(edges_removed)
-                        fp = f"5_page_{pidx}_binarized.png"
-                        if show_imgs: bin_l.show()
-                    else:
-                        bin_l = edges_removed
-                        fp = f"5_page_{pidx}_binarized_(eq_to_edt).png"
-                        logging.info('Skipped Binarization since EDT is used for smudging!')
-                    bin_l.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", fp))
+                        if clusterer.cfg.type_smudging != 'edt':
+                            bin_l = clusterer._to_binary_L(edges_removed)
+                            fp = f"5_page_{pidx}_binarized.png"
+                            if show_imgs: bin_l.show()
+                        else:
+                            bin_l = edges_removed
+                            fp = f"5_page_{pidx}_binarized_(eq_to_edt).png"
+                            logging.info('Skipped Binarization since EDT is used for smudging!')
+                        bin_l.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", fp))
 
-                    points_xy = clusterer._extract_black_xy_from_L(bin_l)
-                    logging.info(f"Doc: {doc_name} -> Page {pidx}: extracted {points_xy.shape[0]} black pixel points")
-                    plt.scatter(points_xy[:, 0], points_xy[:, 1],
-                                            s=1, c="black", marker="s")
-                    plt.gca().invert_yaxis()
-                    plt.xlim(0, w)
-                    plt.ylim(h, 0)
-                    plt.gca().set_aspect("equal", adjustable="box")
-                    plt.title(f"Page {pidx} — Black Pixel Map")
-                    plt.xlabel("x (px)")
-                    plt.ylabel("y (px)")
-                    plt.tight_layout()
-                    if show_imgs:
-                        plt.show()
-                    plt.savefig(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"6_page_{pidx}_points.png"), dpi=150)
-                    plt.close()
+                    with self.timer.time_step(doc_name, pidx, "extract_points_and_cluster"):
+                        points_xy = clusterer._extract_black_xy_from_L(bin_l)
+                        logging.info(f"Doc: {doc_name} -> Page {pidx}: extracted {points_xy.shape[0]} black pixel points")
+                        plt.scatter(points_xy[:, 0], points_xy[:, 1],
+                                                s=1, c="black", marker="s")
+                        plt.gca().invert_yaxis()
+                        plt.xlim(0, w)
+                        plt.ylim(h, 0)
+                        plt.gca().set_aspect("equal", adjustable="box")
+                        plt.title(f"Page {pidx} — Black Pixel Map")
+                        plt.xlabel("x (px)")
+                        plt.ylabel("y (px)")
+                        plt.tight_layout()
+                        if show_imgs:
+                            plt.show()
+                        plt.savefig(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"6_page_{pidx}_points.png"), dpi=150)
+                        plt.close()
 
-                    labels = clusterer._hierarchical_cluster(points_xy)
-                    logging.info(f"Doc: {doc_name} -> Page {pidx}: formed {len(np.unique(labels))} clusters")
+                        labels = clusterer._hierarchical_cluster(points_xy)
+                        logging.info(f"Doc: {doc_name} -> Page {pidx}: formed {len(np.unique(labels))} clusters")
 
-                    if points_xy.size > 0 and labels.size == points_xy.shape[0]:
-                        rng = np.random.default_rng(42)
-                        uniq = np.unique(labels)
-                        color_map = {lb: (rng.random(), rng.random(), rng.random()) for lb in uniq}
-                        for lb in uniq:
-                            mask = labels == lb
-                            plt.scatter(points_xy[mask, 0], points_xy[mask, 1],
-                                        s=1, c=[color_map[lb]], marker="s", label=f"cluster {lb}")
-                        if len(uniq) <= 20:
-                            plt.legend(loc="upper right", fontsize="small", markerscale=10)
-                    plt.gca().invert_yaxis()
-                    plt.xlim(0, w)
-                    plt.ylim(h, 0)
-                    plt.gca().set_aspect("equal", adjustable="box")
-                    plt.title(f"Page {pidx} — Hierarchical Clusters")
-                    plt.xlabel("x (px)")
-                    plt.ylabel("y (px)")
-                    plt.tight_layout()
-                    if show_imgs: plt.show()
-                    plt.savefig(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"7_page_{pidx}_clusters.png"), dpi=150)
-                    plt.close()
+                        if points_xy.size > 0 and labels.size == points_xy.shape[0]:
+                            rng = np.random.default_rng(42)
+                            uniq = np.unique(labels)
+                            color_map = {lb: (rng.random(), rng.random(), rng.random()) for lb in uniq}
+                            for lb in uniq:
+                                mask = labels == lb
+                                plt.scatter(points_xy[mask, 0], points_xy[mask, 1],
+                                            s=1, c=[color_map[lb]], marker="s", label=f"cluster {lb}")
+                            if len(uniq) <= 20:
+                                plt.legend(loc="upper right", fontsize="small", markerscale=10)
+                        plt.gca().invert_yaxis()
+                        plt.xlim(0, w)
+                        plt.ylim(h, 0)
+                        plt.gca().set_aspect("equal", adjustable="box")
+                        plt.title(f"Page {pidx} — Hierarchical Clusters")
+                        plt.xlabel("x (px)")
+                        plt.ylabel("y (px)")
+                        plt.tight_layout()
+                        if show_imgs: plt.show()
+                        plt.savefig(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"7_page_{pidx}_clusters.png"), dpi=150)
+                        plt.close()
 
-                    page = doc.load_page(pidx)
-                    high_img = chunker._render_page_high(page, scale)
-                    w_high, h_high = high_img.size
-                    w_low, h_low = w, h
+                    with self.timer.time_step(doc_name, pidx, "box_extraction_and_suppression"):
+                        page = doc.load_page(pidx)
+                        high_img = chunker._render_page_high(page, scale)
+                        w_high, h_high = high_img.size
+                        w_low, h_low = w, h
 
-                    boxes_low = chunker._boxes_from_labels(points_xy, labels,
-                                                        chunker.cfg.padding_low_px,
-                                                        (w_low, h_low))
+                        boxes_low = chunker._boxes_from_labels(points_xy, labels,
+                                                            chunker.cfg.padding_low_px,
+                                                            (w_low, h_low))
+                        
+                        cleaned_boxes = suppressor.process(boxes_low, (w_low, h_low))
+                        logging.info(f"Doc: {doc_name} -> Page {pidx}: reduced {len(boxes_low)} boxes to {len(cleaned_boxes)} after general suppression")
+                        os.makedirs(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes"), exist_ok=True)
+                        
+                        s0 = gray.copy(); draw = ImageDraw.Draw(s0)
+                        for box in cleaned_boxes:
+                            draw.rectangle(box, outline='red', width=3)
+                        if show_imgs: s0.show()
+                        s0.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"8_page_{pidx}_boxes_processed1.png"))
+
+                    with self.timer.time_step(doc_name, pidx, "suppressor_merge_and_remove_small"):
+                        small_boxes, merged_small_boxes, final_boxes = suppressor.merge_and_remove_small(cleaned_boxes, (w_low, h_low))
+                        logging.info(f"Doc: {doc_name} -> Page {pidx}: reduced {len(cleaned_boxes)} boxes to {len(final_boxes)} after suppression through merging small boxes")
+
+                        sb1 = gray.copy(); draw1 = ImageDraw.Draw(sb1)
+                        for box in small_boxes:
+                            draw1.rectangle(tuple(box), outline='red', width=3)
+                        if show_imgs: sb1.show()
+                        sb1.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"9_page_{pidx}_small_boxes.png"))
+
+                        sb2 = gray.copy(); draw2 = ImageDraw.Draw(sb2)
+                        for box in merged_small_boxes:
+                            draw2.rectangle(tuple(box), outline='red', width=3)
+                        if show_imgs: sb2.show()
+                        sb2.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"10_page_{pidx}_small_boxes_merged.png"))
+
+                        sb3 = gray.copy(); draw3 = ImageDraw.Draw(sb3)
+                        for box in final_boxes:
+                            draw3.rectangle(tuple(box), outline='red', width=3)
+                        if show_imgs: sb3.show()
+                        sb3.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"11_page_{pidx}_final_boxes_low.png"))
+
+                        final_merged_boxes = suppressor.merge_high_overlap(list(map(tuple, final_boxes)))
+
+                        sb4 = gray.copy(); draw4 = ImageDraw.Draw(sb4)
+                        for box in final_merged_boxes:
+                            draw4.rectangle(tuple(box), outline='red', width=3)
+                        if show_imgs: sb4.show()
+                        sb4.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"12_page_{pidx}_merged_final_boxes_low.png"))
+
+
                     
-                    cleaned_boxes = suppressor.process(boxes_low, (w_low, h_low))
-                    logging.info(f"Doc: {doc_name} -> Page {pidx}: reduced {len(boxes_low)} boxes to {len(cleaned_boxes)} after general suppression")
-                    os.makedirs(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes"), exist_ok=True)
+                    with self.timer.time_step(doc_name, pidx, "box_scaling_and_splitting"):
+                        boxes_high = chunker._scale_boxes_low_to_high(final_merged_boxes,
+                                                                    (w_low, h_low),
+                                                                    (w_high, h_high))
+                        # split big boxes into smaller chunks using the scissors class
+                        himgBoxes = high_img.copy()
+                        draw4 = ImageDraw.Draw(himgBoxes)
+                        for box in boxes_high:
+                            draw4.rectangle(box, outline='red', width=3)
+                        
+                        if show_imgs: himgBoxes.show()
+                        himgBoxes.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"13_page_{pidx}_boxes_high.png"))
+
+                        splitter.run(
+                            os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes"),
+                            high_img,
+                            boxes_high
+                        )
                     
-                    s0 = gray.copy(); draw = ImageDraw.Draw(s0)
-                    for box in cleaned_boxes:
-                        draw.rectangle(box, outline='red', width=3)
-                    if show_imgs: s0.show()
-                    s0.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"8_page_{pidx}_boxes_processed1.png"))
-
-                    small_boxes, merged_small_boxes, final_boxes = suppressor.merge_and_remove_small(cleaned_boxes, (w_low, h_low))
-                    logging.info(f"Doc: {doc_name} -> Page {pidx}: reduced {len(cleaned_boxes)} boxes to {len(final_boxes)} after suppression through merging small boxes")
-
-                    sb1 = gray.copy(); draw1 = ImageDraw.Draw(sb1)
-                    for box in small_boxes:
-                        draw1.rectangle(tuple(box), outline='red', width=3)
-                    if show_imgs: sb1.show()
-                    sb1.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"9_page_{pidx}_small_boxes.png"))
-
-                    sb2 = gray.copy(); draw2 = ImageDraw.Draw(sb2)
-                    for box in merged_small_boxes:
-                        draw2.rectangle(tuple(box), outline='red', width=3)
-                    if show_imgs: sb2.show()
-                    sb2.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"10_page_{pidx}_small_boxes_merged.png"))
-
-                    sb3 = gray.copy(); draw3 = ImageDraw.Draw(sb3)
-                    for box in final_boxes:
-                        draw3.rectangle(tuple(box), outline='red', width=3)
-                    if show_imgs: sb3.show()
-                    sb3.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"11_page_{pidx}_final_boxes_low.png"))
-
-                    final_merged_boxes = suppressor.merge_high_overlap(list(map(tuple, final_boxes)))
-
-                    sb4 = gray.copy(); draw4 = ImageDraw.Draw(sb4)
-                    for box in final_merged_boxes:
-                        draw4.rectangle(tuple(box), outline='red', width=3)
-                    if show_imgs: sb4.show()
-                    sb4.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"12_page_{pidx}_merged_final_boxes_low.png"))
-
-
-                    
-                    boxes_high = chunker._scale_boxes_low_to_high(final_merged_boxes,
-                                                                (w_low, h_low),
-                                                                (w_high, h_high))
-                    # split big boxes into smaller chunks using the scissors class
-                    himgBoxes = high_img.copy()
-                    draw4 = ImageDraw.Draw(himgBoxes)
-                    for box in boxes_high:
-                        draw4.rectangle(box, outline='red', width=3)
-                    
-                    if show_imgs: himgBoxes.show()
-                    himgBoxes.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"13_page_{pidx}_boxes_high.png"))
-
-                    splitter.run(
-                        os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes"),
-                        high_img,
-                        boxes_high
-                    )
+        self.timer.save_to_csv(os.path.join(self.output_dir, f"timing_records.csv"))
 
                     # comment all the following:
                     # for i, box in enumerate(boxes_high):
