@@ -81,7 +81,6 @@ class NOQTA:
             new_w=scrscfg.get("new_w", 600),
             use_edt=scrscfg.get("use_edt", True),
             edt_threshold=scrscfg.get("edt_threshold", 1),
-            max_ratio=scrscfg.get("max_ratio", (5, 9)),
             sobel_kernel_size=scrscfg.get("sobel_kernel_size", 3),
             rho=scrscfg.get("rho", 1.0),
             theta=scrscfg.get("theta", np.pi / 180),
