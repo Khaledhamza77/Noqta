@@ -103,7 +103,8 @@ class Splitter:
                 og_size = high_res_box.size
                 new_size = croppedBox.size
                 y_start = 0
-                for j, cut in enumerate(splitting_points):
+                for j, spoint in enumerate(splitting_points):
+                    _, cut, _, _ = spoint
                     if cut - y_start > self.cfg.min_length_to_split:
                         high_res_box.crop(
                             self._upscale_box(
