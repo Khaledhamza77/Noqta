@@ -167,8 +167,9 @@ class Splitter:
         target_value = 255 if line_color == "white" else 0   # pixel value we look for
 
         min_run_px = width * self.cfg.min_width
-        # Convert to binary array where True = target color, False = other color
-        img = np.array(gray == target_value, dtype=np.uint8)
+        # Create a binary bool mask where True = target color (white or black)
+        arr = np.array(gray)
+        mask = (arr == target_value)
 
-        sums = img.sum(axis=1)  # sum of target-color pixels in each row
+        sums = mask.sum(axis=1)  # sum of target-color pixels in each row
         return [(0, y, width, y) for y, count in enumerate(sums) if count >= min_run_px]
