@@ -54,5 +54,5 @@ class Timer:
         overview2 = df.groupby("step_name")["time_taken_seconds"].mean().reset_index()
 
         # create a third overview that shows the total time taken per document
-        overview3 = df.groupby("document_name")["time_taken_seconds"].sum().reset_index
+        overview3 = df.groupby("document_name")["time_taken_seconds"].sum().reset_index()
         return overview1, overview2, overview3
