@@ -1,4 +1,6 @@
-from .configs import ClustererConfig, ChunkerConfig, SuppressorConfig, ScissorsConfig
+from noqta.vision.splitter import Splitter
+
+from .configs import ClustererConfig, ChunkerConfig, SplitterConfig, SuppressorConfig, ScissorsConfig
 from .vision.suppressor import Suppressor
 from .vision.clusterer import Clusterer
 from .vision.scissors import Scissors
@@ -89,18 +91,28 @@ class NOQTA:
             min_ratio_to_side=scrscfg.get("min_ratio_to_side", 0.8)
         )
         scissors = Scissors(scrs_cfg)
+
+        splitcfg = self.config.get("splitter", {})
+        split_cfg = SplitterConfig(
+            new_w=splitcfg.get("new_w", 600),
+            edt_threshold=splitcfg.get("edt_threshold", 1),
+            max_ratio=splitcfg.get("max_ratio", (5, 9)),
+            high_box_threshold=splitcfg.get("high_box_threshold", 0.5),
+            min_width=splitcfg.get("min_width", 0.95),
+            min_length_to_split=splitcfg.get("min_length_to_split", 30)
+        )
+        splitter = Splitter(split_cfg)
         logging.info("NOQTA configured successfully.")
-        return cluster, chunker, suppressor, scissors
+        return cluster, chunker, suppressor, scissors, splitter
 
     @staticmethod
     def _get_doc_name(pdf_path: str) -> str:
         doc_name = os.path.splitext(os.path.basename(pdf_path))[0]
-        doc_name = doc_name.replace(' ', '_')
         doc_name = doc_name.replace('.pdf', '')
         return doc_name
 
     def run(self, show_imgs: bool = False):
-        clusterer, chunker, suppressor, scissors = self.configure()
+        clusterer, chunker, suppressor, scissors, splitter = self.configure()
         for pdf_path in self.paths:
             doc_name = self._get_doc_name(pdf_path)
             logging.info(f"Processing document: {doc_name}")
@@ -249,38 +261,45 @@ class NOQTA:
                     if show_imgs: himgBoxes.show()
                     himgBoxes.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", f"13_page_{pidx}_boxes_high.png"))
 
-                    for i, box in enumerate(boxes_high):
-                        x1, y1, x2, y2 = box
-                        _, h_box = x2 - x1, y2 - y1
-                        if h_box >= 0.5 * h_high:
-                            os.makedirs(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes", f"long_box_{i}"), exist_ok=True)
-                            high_box, edt_box = scissors._prepare_image(high_img, box)
-                            edt_box.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes", f"long_box_{i}", f"1_resized_box.png"))
-                            edges_img, edges_box = scissors._find_horizontal_edges(edt_box)
-                            edges_img.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes", f"long_box_{i}", f"2_edges.png"))
-                            if len(edges_box) > 0:
-                                splitting_points = scissors._find_splitting_points(edt_box.size, edges_box)
-                                draw = ImageDraw.Draw(edges_img)
-                                for x1, y, x2, _ in splitting_points:
-                                    draw.line([(x1, y), (x2, y)], fill='blue', width=2)
-                                edges_img.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes", f"long_box_{i}", f"3_edges_to_split_at.png"))
-                                scissors._crop_at_high(
-                                    box_index=i,
-                                    high_lines=scissors._scale_lines(
-                                        edt_box.size,
-                                        high_box.size,
-                                        splitting_points
-                                    ),
-                                    high_img=high_box,
-                                    path=os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes")
-                                )
-                            else:
-                                logging.info(f"Doc: {doc_name} -> Page {pidx} -> Box {i}: No edges / splitting points found for this long box, saving as is.")
-                                high_box.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes", f"box_{i}.png"))
-                        else:
-                            scissors.crop_image_by_boxes(
-                                i=i,
-                                image=high_img,
-                                box=box,
-                                path_to_save=os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes")
-                            )
+                    splitter.run(
+                        os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes"),
+                        high_img,
+                        boxes_high
+                    )
+
+                    # comment all the following:
+                    # for i, box in enumerate(boxes_high):
+                    #    x1, y1, x2, y2 = box
+                    #    _, h_box = x2 - x1, y2 - y1
+                    #    if h_box >= 0.5 * h_high:
+                    #        os.makedirs(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes", f"long_box_{i}"), exist_ok=True)
+                    #        high_box, edt_box = scissors._prepare_image(high_img, box)
+                    #        edt_box.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes", f"long_box_{i}", f"1_resized_box.png"))
+                    #        edges_img, edges_box = scissors._find_horizontal_edges(edt_box)
+                    #        edges_img.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes", f"long_box_{i}", f"2_edges.png"))
+                    #        if len(edges_box) > 0:
+                    #            splitting_points = scissors._find_splitting_points(edt_box.size, edges_box)
+                    #            draw = ImageDraw.Draw(edges_img)
+                    #            for x1, y, x2, _ in splitting_points:
+                    #                draw.line([(x1, y), (x2, y)], fill='blue', width=2)
+                    #            edges_img.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes", f"long_box_{i}", f"3_edges_to_split_at.png"))
+                    #            scissors._crop_at_high(
+                    #                box_index=i,
+                    #                high_lines=scissors._scale_lines(
+                    #                    edt_box.size,
+                    #                    high_box.size,
+                    #                    splitting_points
+                    #                ),
+                    #                high_img=high_box,
+                    #                path=os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes")
+                    #            )
+                    #        else:
+                    #            logging.info(f"Doc: {doc_name} -> Page {pidx} -> Box {i}: No edges / splitting points found for this long box, saving as is.")
+                    #            high_box.save(os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes", f"box_{i}.png"))
+                    #    else:
+                    #        scissors.crop_image_by_boxes(
+                    #            i=i,
+                    #            image=high_img,
+                    #            box=box,
+                    #            path_to_save=os.path.join(self.output_dir, doc_name, f"page_{pidx}", "boxes")
+                    #        )

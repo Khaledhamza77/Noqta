@@ -56,7 +56,6 @@ class ScissorsConfig:
     new_w: int = 600 # pixels; it is the new width to resize the high-resolution width of the bbox to
     use_edt: bool = True
     edt_threshold: int = 1
-    max_ratio: Tuple[int, int] = (5, 9) # maximum aspect ratio where height cannot have a ratio bigger than this to width
     sobel_kernel_size: int = 3
     rho: float = 1.0
     theta: float = np.pi / 180
@@ -64,3 +63,12 @@ class ScissorsConfig:
     angle_tolerance_degree: float = 1.0
     max_line_gap: int = 10
     min_ratio_to_side: float = 0.95
+
+@dataclass
+class SplitterConfig:
+    new_w: int = 400 # pixels; it is the new width to resize the high-resolution width of the bbox to for finding splitting lines
+    edt_threshold: int = 1
+    high_box_threshold: float = 0.5 # ratio to image height above which a box is considered "high" (tall)
+    max_ratio: Tuple[int, int] = (5, 9) # maximum aspect ratio where height cannot have a ratio bigger than this to width
+    min_width: float = 0.95 # minimum width of detected line as a ratio to image width (to filter out small lines that are not likely to split the box)
+    min_length_to_split: int = 30
